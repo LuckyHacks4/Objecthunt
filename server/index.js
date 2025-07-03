@@ -193,9 +193,12 @@ io.on("connection", (socket) => {
 
 // Serve static files from the React app
 app.use(express.static(path.join(__dirname, "../client/dist")));
+
 // For any other requests, send back React's index.html
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
 });
 
-server.listen(3001, () => console.log("Server running on http://localhost:3001"));
+// Use PORT from environment variable (for Render) or default to 3001
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

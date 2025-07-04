@@ -368,6 +368,15 @@ const App = () => {
   };
 
   const startGame = () => {
+    // Start the first round of the game
+    socket.emit("next-round", roomId);
+  };
+
+  const exitLobby = () => {
+    window.location.reload();
+  };
+
+  const startNewGame = () => {
     // Reset game state for new game
     setGameState("lobby");
     setRound(0);
@@ -382,10 +391,6 @@ const App = () => {
     
     // Reset all players to not ready
     socket.emit("reset-game", { roomId });
-  };
-
-  const exitLobby = () => {
-    window.location.reload();
   };
 
   const takePhoto = async () => {
@@ -972,7 +977,7 @@ const App = () => {
           <div className="mt-6 space-y-3">
             {isHost ? (
               <button
-                onClick={startGame}
+                onClick={startNewGame}
                 className={`w-full ${orangeButton}`}
               >
                 Start New Game

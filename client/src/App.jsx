@@ -45,6 +45,9 @@ const App = () => {
   const [countdownNumber, setCountdownNumber] = useState(3);
   const [showCelebration, setShowCelebration] = useState(false);
   const [winnerName, setWinnerName] = useState("");
+  const [customWords, setCustomWords] = useState([]);
+  const [newCustomWord, setNewCustomWord] = useState("");
+  const [loadingFact, setLoadingFact] = useState("");
   
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -92,6 +95,29 @@ const App = () => {
         console.log("Could not play loading sound:", error);
       }
     };
+
+    const funnyFacts = [
+      "Did you know? The average person spends 6 months of their life waiting for red lights to turn green!",
+      "Fun fact: A group of flamingos is called a 'flamboyance'!",
+      "Here's something wild: Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!",
+      "Did you know? Bananas are berries, but strawberries aren't!",
+      "Fun fact: A day on Venus is longer than its year!",
+      "Here's a weird one: The shortest war in history lasted only 38 minutes!",
+      "Did you know? Cows have best friends and get stressed when separated!",
+      "Fun fact: The average person walks the equivalent of three times around the world in a lifetime!",
+      "Here's something cool: A group of penguins is called a 'waddle'!",
+      "Did you know? The Great Wall of China is not visible from space with the naked eye!",
+      "Fun fact: A day on Mars is only 37 minutes longer than a day on Earth!",
+      "Here's wild: The average person spends 5 years of their life eating!",
+      "Did you know? A group of owls is called a 'parliament'!",
+      "Fun fact: The shortest complete sentence in English is 'I am'!",
+      "Here's something amazing: Your brain uses 20% of your body's total energy!",
+      "Did you know? A group of jellyfish is called a 'smack'!",
+      "Fun fact: The average person spends 6 months of their life waiting for things to load!",
+      "Here's a cool one: A day on Jupiter is only 10 hours long!",
+      "Did you know? The average person spends 2 weeks of their life kissing!",
+      "Fun fact: A group of cats is called a 'clowder'!"
+    ];
     
     // Play loading sound after a short delay
     setTimeout(playLoadingSound, 500);
@@ -113,6 +139,9 @@ const App = () => {
       setUsername(`${randomName}${randomNumber}`);
     }
 
+    // Set a random funny fact
+    setLoadingFact(funnyFacts[Math.floor(Math.random() * funnyFacts.length)]);
+    
     // Initial loading screen
     setTimeout(() => {
       setShowLoading(false);
@@ -145,7 +174,7 @@ const App = () => {
 
     socket.on("new-round", ({ round: newRound, word }) => {
       setRound(newRound);
-      setCurrentWord(word);
+      setCurrentWord(""); // Hide word during countdown
       setGameState("playing");
       setTimeLeft(60);
       setSubmissions([]);
@@ -164,6 +193,7 @@ const App = () => {
           if (prev <= 1) {
             clearInterval(countdownInterval);
             setShowCountdown(false);
+            setCurrentWord(word); // Show word after countdown
             return 3;
           }
           return prev - 1;
@@ -196,8 +226,6 @@ const App = () => {
 
     socket.on("game-ended", (finalScores) => {
       setScores(finalScores);
-      setGameState("ended");
-      endSound.current.play();
       
       // Find the game winner
       const gameWinner = Object.entries(finalScores)
@@ -233,11 +261,19 @@ const App = () => {
             console.log("Could not play celebration sound:", error);
           }
           
-          // Hide celebration after 5 seconds
+          // Hide celebration after 5 seconds and show game end screen
           setTimeout(() => {
             setShowCelebration(false);
+            setGameState("ended");
+            endSound.current.play();
           }, 5000);
+        } else {
+          setGameState("ended");
+          endSound.current.play();
         }
+      } else {
+        setGameState("ended");
+        endSound.current.play();
       }
     });
 
@@ -271,6 +307,9 @@ const App = () => {
       setHasSubmittedPhoto(false);
       setPhotoSubmitted(false);
       setPlayerAvatars({});
+      setCustomWords([]);
+      setNewCustomWord("");
+      setLoadingFact("");
     });
 
     return () => {
@@ -297,6 +336,29 @@ const App = () => {
     let timer;
     if (gameState === "voting" && votingTimeLeft > 0) {
       timer = setTimeout(() => setVotingTimeLeft(votingTimeLeft - 1), 1000);
+      
+      // Play fast beep sound for last 10 seconds
+      if (votingTimeLeft <= 10 && votingTimeLeft > 0) {
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.05);
+          
+          gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.1);
+        } catch (error) {
+          console.log("Could not play beep sound:", error);
+        }
+      }
     } else if (gameState === "voting" && votingTimeLeft === 0) {
       // Play timeout sound
       try {
@@ -368,8 +430,8 @@ const App = () => {
   };
 
   const startGame = () => {
-    // Start the first round of the game
-    socket.emit("next-round", roomId);
+    // Start the first round of the game with custom words
+    socket.emit("next-round", { roomId, customWords });
   };
 
   const exitLobby = () => {
@@ -698,6 +760,36 @@ const App = () => {
                   📸 Take Avatar Photo
                 </button>
               )}
+              
+              {/* Custom Words Section */}
+              <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
+                <h4 className="text-sm font-semibold text-primary-dark mb-2">Add Custom Words:</h4>
+                <div className="flex space-x-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder="Enter a word..."
+                    value={newCustomWord}
+                    onChange={(e) => setNewCustomWord(e.target.value)}
+                    className="flex-1 p-2 text-sm border border-primary-light rounded bg-white"
+                  />
+                  <button
+                    onClick={() => {
+                      if (newCustomWord.trim()) {
+                        setCustomWords([...customWords, newCustomWord.trim()]);
+                        setNewCustomWord("");
+                      }
+                    }}
+                    className={`px-3 py-2 ${orangeButton} text-sm`}
+                  >
+                    Add
+                  </button>
+                </div>
+                {customWords.length > 0 && (
+                  <div className="text-xs text-primary-dark">
+                    Custom words: {customWords.join(", ")}
+                  </div>
+                )}
+              </div>
               
               {players.length >= 2 && players.every(p => p.ready) && isAdmin && (
                 <button
@@ -1063,6 +1155,22 @@ const App = () => {
         >
           Loading...
         </motion.p>
+        {loadingFact && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+            className="mt-6 max-w-md mx-auto"
+          >
+            <motion.p
+              animate={{ opacity: [0.7, 1] }}
+              transition={{ duration: 2, repeat: Infinity, repeatType: "reverse" }}
+              className="text-white text-sm italic"
+            >
+              💡 {loadingFact}
+            </motion.p>
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );

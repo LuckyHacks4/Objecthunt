@@ -214,25 +214,51 @@ io.on("connection", (socket) => {
       "wire", "chain", "hook", "clip", "pin", "button", "zipper", "velcro", "magnet", "sticker"
     ];
     
+    // Combine regular words with custom words
+    let allWords = [...wordList];
+    if (room.customWords && room.customWords.length > 0) {
+      allWords = [...allWords, ...room.customWords];
+    }
+    
     // Filter out used words
-    const availableWords = wordList.filter(word => !room.usedWords.includes(word));
+    const availableWords = allWords.filter(word => !room.usedWords.includes(word));
     
     // If all words used, reset the used words list
     if (availableWords.length === 0) {
       room.usedWords = [];
     }
     
-    const newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    // Ensure at least 2 custom words are used in a 5-round game
+    let newWord;
+    if (room.round <= 2 && room.customWords && room.customWords.length > 0) {
+      // For first 2 rounds, prioritize custom words
+      const availableCustomWords = room.customWords.filter(word => !room.usedWords.includes(word));
+      if (availableCustomWords.length > 0) {
+        newWord = availableCustomWords[Math.floor(Math.random() * availableCustomWords.length)];
+      } else {
+        newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+      }
+    } else {
+      newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    }
+    
     room.usedWords.push(newWord);
     
     io.to(roomId).emit("new-round", { round: room.round, word: newWord });
   }
 
-  socket.on("next-round", (roomId) => {
+  socket.on("next-round", (data) => {
+    const { roomId, customWords } = data;
     const room = rooms[roomId];
     if (!room) return;
     if (room.players.length < 2) return;
     if (!room.players.every(p => p.ready)) return;
+    
+    // Store custom words in room
+    if (customWords && customWords.length > 0) {
+      room.customWords = customWords;
+    }
+    
     nextRound(roomId);
     room.players.forEach(p => p.ready = false);
     io.to(roomId).emit("room-update", room.players);

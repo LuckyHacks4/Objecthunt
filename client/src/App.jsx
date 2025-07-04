@@ -742,22 +742,28 @@ const App = () => {
       >
         {renderHeader()}
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
-          <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt</h1>
+                        <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
           {!joinedRoom ? (
             <div className="space-y-4">
+              <label htmlFor="username" className="sr-only">Your username</label>
               <input
+                id="username"
                 type="text"
                 placeholder="Your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+                aria-label="Enter your username"
               />
+              <label htmlFor="roomId" className="sr-only">Room ID</label>
               <input
+                id="roomId"
                 type="text"
                 placeholder="Room ID"
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+                aria-label="Enter room ID"
               />
               <div className="flex space-x-2">
                 <div className="flex-1">
@@ -1435,62 +1441,87 @@ const App = () => {
 
   // --- MAIN RENDER ---
   return (
-    <div
-      className="App min-h-screen font-sans relative"
-      style={{
-        minHeight: '100vh',
-        width: '100vw',
-        overflowX: 'hidden',
-      }}
-    >
-      {/* Fixed background image */}
-      <div
-        style={{
-          backgroundImage: `url(${bg})`,
-          backgroundColor: '#ff9800',
-          backgroundRepeat: 'repeat',
-          backgroundSize: 'cover',
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          zIndex: 0,
-        }}
-      />
-      {/* Orange overlay for readability */}
-      <div className="fixed inset-0" style={{background: 'rgba(255, 152, 0, 0.80)', zIndex: 1}} />
+    <>
+      {/* SEO-friendly page structure */}
+      <header role="banner" className="sr-only">
+        <h1>Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
+        <p>Play the ultimate free multiplayer photo scavenger hunt game online. Find objects, take photos, vote, and compete with friends!</p>
+      </header>
+      
+      <main role="main" id="main-content">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
+        <div
+          className="App min-h-screen font-sans relative"
+          style={{
+            minHeight: '100vh',
+            width: '100vw',
+            overflowX: 'hidden',
+          }}
+        >
+          {/* Fixed background image */}
+          <div
+            style={{
+              backgroundImage: `url(${bg})`,
+              backgroundColor: '#ff9800',
+              backgroundRepeat: 'repeat',
+              backgroundSize: 'cover',
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 0,
+            }}
+          />
+          {/* Orange overlay for readability */}
+          <div className="fixed inset-0" style={{background: 'rgba(255, 152, 0, 0.80)', zIndex: 1}} />
 
-      <div className="relative z-10">
-        <AnimatePresence>
-          {showLoading && renderLoadingScreen()}
-        </AnimatePresence>
-        
-        {!showLoading && (
-          <>
-            {gameState !== "lobby" && renderHeader()}
-            {showCamera && renderCamera()}
-            {showAvatarCamera && renderAvatarCamera()}
-            {showRoundResults && renderRoundResults()}
-            {showCountdown && renderCountdown()}
-            {showCelebration && renderCelebration()}
-            {photoSubmitted && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
-              >
-                ✅ Photo submitted successfully!
-              </motion.div>
+          <div className="relative z-10">
+            <AnimatePresence>
+              {showLoading && renderLoadingScreen()}
+            </AnimatePresence>
+            
+            {!showLoading && (
+              <>
+                {gameState !== "lobby" && renderHeader()}
+                {showCamera && renderCamera()}
+                {showAvatarCamera && renderAvatarCamera()}
+                {showRoundResults && renderRoundResults()}
+                {showCountdown && renderCountdown()}
+                {showCelebration && renderCelebration()}
+                {photoSubmitted && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+                  >
+                    ✅ Photo submitted successfully!
+                  </motion.div>
+                )}
+                {gameState === "lobby" && renderLobby()}
+                {gameState === "playing" && renderGame()}
+                {gameState === "voting" && renderVoting()}
+                {gameState === "ended" && renderGameEnd()}
+              </>
             )}
-            {gameState === "lobby" && renderLobby()}
-            {gameState === "playing" && renderGame()}
-            {gameState === "voting" && renderVoting()}
-            {gameState === "ended" && renderGameEnd()}
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </div>
+      </main>
+      
+      <footer role="contentinfo" className="sr-only">
+        <nav aria-label="Footer navigation">
+          <ul>
+            <li><a href="/about">About Object Hunt</a></li>
+            <li><a href="/how-to-play">How to Play</a></li>
+            <li><a href="/features">Features</a></li>
+            <li><a href="/contact">Contact</a></li>
+            <li><a href="/privacy">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Service</a></li>
+          </ul>
+        </nav>
+        <p>&copy; 2024 Object Hunt. Free multiplayer photo scavenger hunt game.</p>
+      </footer>
+    </>
   );
 };
 

@@ -41,6 +41,8 @@ const App = () => {
   const [playerAvatars, setPlayerAvatars] = useState({});
   const [showAvatarCamera, setShowAvatarCamera] = useState(false);
   const [facingMode, setFacingMode] = useState('user');
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownNumber, setCountdownNumber] = useState(3);
   
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -99,6 +101,11 @@ const App = () => {
     const roomFromUrl = urlParams.get('room');
     if (roomFromUrl) {
       setRoomId(roomFromUrl);
+      // Auto-join the room if username is provided
+      const usernameFromUrl = urlParams.get('username');
+      if (usernameFromUrl) {
+        setUsername(usernameFromUrl);
+      }
     }
 
     // Initial loading screen
@@ -142,6 +149,26 @@ const App = () => {
       setShowRoundResults(false);
       setHasSubmittedPhoto(false);
       setPhotoSubmitted(false);
+      
+      // Show countdown before starting
+      setShowCountdown(true);
+      setCountdownNumber(3);
+      
+      const countdownInterval = setInterval(() => {
+        setCountdownNumber(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            setShowCountdown(false);
+            return 3;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Auto-scroll to top for mobile
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
     });
 
     socket.on("start-voting", (subs) => {
@@ -182,6 +209,10 @@ const App = () => {
       window.location.reload();
     });
 
+    socket.on("avatar-updated", ({ playerId, avatarData }) => {
+      setPlayerAvatars(prev => ({ ...prev, [playerId]: avatarData }));
+    });
+
     return () => {
       socket.off("room-update");
       socket.off("new-round");
@@ -189,6 +220,7 @@ const App = () => {
       socket.off("score-update");
       socket.off("game-ended");
       socket.off("chat-message");
+      socket.off("avatar-updated");
     };
   }, [joinedRoom, mySocketId]);
 
@@ -204,6 +236,28 @@ const App = () => {
     let timer;
     if (gameState === "voting" && votingTimeLeft > 0) {
       timer = setTimeout(() => setVotingTimeLeft(votingTimeLeft - 1), 1000);
+    } else if (gameState === "voting" && votingTimeLeft === 0) {
+      // Play timeout sound
+      try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(200, audioContext.currentTime + 0.2);
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (error) {
+        console.log("Could not play timeout sound:", error);
+      }
     }
     return () => clearTimeout(timer);
   }, [votingTimeLeft, gameState]);
@@ -254,6 +308,10 @@ const App = () => {
 
   const startGame = () => {
     socket.emit("next-round", roomId);
+  };
+
+  const exitLobby = () => {
+    window.location.reload();
   };
 
   const takePhoto = async () => {
@@ -397,6 +455,10 @@ const App = () => {
     
     const avatarData = croppedCanvas.toDataURL("image/jpeg");
     setPlayerAvatars(prev => ({ ...prev, [mySocketId]: avatarData }));
+    
+    // Send avatar to server so other players can see it
+    socket.emit("update-avatar", { roomId, avatarData });
+    
     setShowAvatarCamera(false);
     
     if (cameraStream) {
@@ -426,7 +488,7 @@ const App = () => {
   const renderLobby = () => {
     // Determine if current user is admin (host)
     const isAdmin = players.length > 0 && players[0].id === mySocketId;
-    const shareUrl = `${window.location.origin}?room=${roomId}`;
+    const shareUrl = `${window.location.origin}?room=${roomId}&username=${encodeURIComponent(username)}`;
     
     const copyShareLink = () => {
       navigator.clipboard.writeText(shareUrl);
@@ -700,7 +762,7 @@ const App = () => {
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {submissions.map((submission, index) => {
             const player = players.find(p => p.id === submission.playerId);
             const hasVoted = myVotes.has(index);
@@ -714,11 +776,16 @@ const App = () => {
                 animate={{ scale: 1, opacity: 1 }}
                 className={`bg-white rounded-lg shadow-xl overflow-hidden border-2 border-primary ${hasVoted ? 'ring-2 ring-primary-dark' : ''}`}
               >
-                <img 
-                  src={submission.photo} 
-                  alt="Submission" 
-                  className="w-full h-48 object-cover"
-                />
+                <div className="relative">
+                  <img 
+                    src={submission.photo} 
+                    alt="Submission" 
+                    className="w-full h-40 sm:h-48 object-contain bg-gray-100"
+                  />
+                  <div className="absolute top-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+                    {player?.name || 'Unknown'}
+                  </div>
+                </div>
                 <div className="p-4">
                   <h3 className="text-lg font-semibold mb-2 text-primary-dark">{player?.name || 'Unknown'}</h3>
                   <div className="mb-3">
@@ -774,44 +841,62 @@ const App = () => {
   );
 
   // --- GAME END ---
-  const renderGameEnd = () => (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className={`min-h-screen flex items-center justify-center p-4`}
-    >
-      <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
-        <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
-        <div className="space-y-4">
-          {Object.entries(scores)
-            .sort(([,a], [,b]) => b - a)
-            .map(([playerId, score], index) => {
-              const player = players.find(p => p.id === playerId);
-              return (
-                <motion.div
-                  key={playerId}
-                  initial={{ x: -50, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`flex justify-between items-center p-4 rounded-lg ${index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}
+  const renderGameEnd = () => {
+    const isHost = players.length > 0 && players[0].id === mySocketId;
+    
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`min-h-screen flex items-center justify-center p-4`}
+      >
+        <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
+          <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
+          <div className="space-y-4">
+            {Object.entries(scores)
+              .sort(([,a], [,b]) => b - a)
+              .map(([playerId, score], index) => {
+                const player = players.find(p => p.id === playerId);
+                return (
+                  <motion.div
+                    key={playerId}
+                    initial={{ x: -50, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`flex justify-between items-center p-4 rounded-lg ${index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}
+                  >
+                    <span className="text-lg font-semibold text-primary-dark">
+                      {index + 1}. {player?.name || 'Unknown'}
+                    </span>
+                    <span className="text-xl font-bold text-primary-dark">{score} points</span>
+                  </motion.div>
+                );
+              })}
+          </div>
+          <div className="mt-6 space-y-3">
+            {isHost ? (
+              <button
+                onClick={startGame}
+                className={`w-full ${orangeButton}`}
+              >
+                Start New Game
+              </button>
+            ) : (
+              <div className="text-center">
+                <p className="text-primary-dark mb-3">Waiting for host to start a new game...</p>
+                <button
+                  onClick={exitLobby}
+                  className={`w-full ${orangeButtonOutline}`}
                 >
-                  <span className="text-lg font-semibold text-primary-dark">
-                    {index + 1}. {player?.name || 'Unknown'}
-                  </span>
-                  <span className="text-xl font-bold text-primary-dark">{score} points</span>
-                </motion.div>
-              );
-            })}
+                  Exit Lobby
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <button
-          onClick={() => window.location.reload()}
-          className={`w-full mt-6 ${orangeButton}`}
-        >
-          Play Again
-        </button>
-      </div>
-    </motion.div>
-  );
+      </motion.div>
+    );
+  };
 
   // --- ROUND RESULTS MODAL ---
   const renderRoundResults = () => (
@@ -876,6 +961,35 @@ const App = () => {
           className="text-white mt-4 text-lg"
         >
           Loading...
+        </motion.p>
+      </div>
+    </motion.div>
+  );
+
+  // --- COUNTDOWN SCREEN ---
+  const renderCountdown = () => (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+    >
+      <div className="text-center">
+        <motion.div
+          key={countdownNumber}
+          initial={{ scale: 0, rotate: -180 }}
+          animate={{ scale: 1, rotate: 0 }}
+          exit={{ scale: 0, rotate: 180 }}
+          className="text-8xl font-bold text-white mb-4"
+        >
+          {countdownNumber}
+        </motion.div>
+        <motion.p
+          animate={{ opacity: [0.5, 1] }}
+          transition={{ duration: 0.5, repeat: Infinity, repeatType: "reverse" }}
+          className="text-2xl text-white"
+        >
+          Get Ready!
         </motion.p>
       </div>
     </motion.div>
@@ -995,6 +1109,7 @@ const App = () => {
             {showCamera && renderCamera()}
             {showAvatarCamera && renderAvatarCamera()}
             {showRoundResults && renderRoundResults()}
+            {showCountdown && renderCountdown()}
             {photoSubmitted && (
               <motion.div
                 initial={{ scale: 0 }}

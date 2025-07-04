@@ -149,8 +149,82 @@ io.on("connection", (socket) => {
     }
     
     room.submissions = [];
-    const wordList = ["bottle", "pen", "cup", "shoe", "book", "chair", "table", "phone", "key", "lamp"];
-    const newWord = wordList[Math.floor(Math.random() * wordList.length)];
+    
+    // Initialize used words if not exists
+    if (!room.usedWords) room.usedWords = [];
+    
+    const wordList = [
+      // Simple household items that can be picked up
+      "pen", "pencil", "book", "paper", "notebook", "ruler", "eraser", "marker", "crayon", "scissors",
+      "tape", "glue", "stapler", "paperclip", "rubber band", "sticker", "envelope", "stamp", "card", "photo",
+      
+      // Kitchen items (portable)
+      "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "glass", "bottle", "can",
+      "apple", "banana", "orange", "cookie", "bread", "egg", "salt", "pepper", "napkin", "tissue",
+      
+      // Clothing & accessories
+      "shoe", "sock", "shirt", "hat", "cap", "glove", "scarf", "belt", "tie", "watch",
+      "glasses", "sunglasses", "ring", "necklace", "bracelet", "earring", "wallet", "purse", "bag", "backpack",
+      
+      // Personal care items
+      "toothbrush", "toothpaste", "soap", "shampoo", "brush", "comb", "mirror", "towel", "tissue", "lotion",
+      "perfume", "deodorant", "razor", "nail clipper", "makeup", "lipstick", "powder", "cream", "bandaid", "medicine",
+      
+      // Electronics (small/portable)
+      "phone", "remote", "headphones", "charger", "mouse", "keyboard", "cable", "battery", "flashlight", "calculator",
+      "camera", "game", "cd", "dvd", "usb", "speaker", "microphone", "earbuds", "tablet", "laptop",
+      
+      // Toys & games
+      "ball", "toy", "doll", "car", "truck", "puzzle", "card", "dice", "coin", "marble",
+      "yo-yo", "slinky", "blocks", "lego", "action figure", "stuffed animal", "balloon", "kite", "frisbee", "jump rope",
+      
+      // Office/school supplies
+      "folder", "binder", "clipboard", "calendar", "planner", "highlighter", "whiteboard marker", "chalk", "pushpin", "thumbtack",
+      
+      // Tools (simple/small)
+      "hammer", "screwdriver", "wrench", "nail", "screw", "key", "lock", "flashlight", "tape measure", "level",
+      
+      // Bathroom items
+      "cup", "bottle", "container", "jar", "tube", "spray bottle", "cotton ball", "q-tip", "tweezers", "nail file",
+      
+      // Bedroom items
+      "pillow", "blanket", "sheet", "pillowcase", "alarm clock", "lamp", "candle", "picture frame", "book", "magazine",
+      
+      // Kitchen utensils
+      "spatula", "whisk", "ladle", "tongs", "can opener", "bottle opener", "measuring cup", "timer", "oven mitt", "pot holder",
+      
+      // Cleaning supplies
+      "sponge", "cloth", "paper towel", "spray bottle", "brush", "dustpan", "gloves", "bucket", "mop", "broom",
+      
+      // Art supplies
+      "paint", "paintbrush", "colored pencil", "chalk", "charcoal", "canvas", "sketchbook", "palette", "easel", "frame",
+      
+      // Garden items (small)
+      "flower", "plant", "seed", "watering can", "gloves", "small shovel", "pruners", "pot", "fertilizer", "soil",
+      
+      // Sports items (portable)
+      " ball", "racket", "bat", "glove", "helmet",, "water bottle", "towel", "whistle", "stopwatch", "medal",
+      
+      // Food items
+      "cereal", "milk", "juice", "water", "soda", "coffee", "tea", "sugar", "honey", "jam",
+      "peanut butter", "crackers", "chips", "candy", "chocolate", "gum", "mint", "lemon", "lime", "grape",
+      
+      // Miscellaneous portable items
+      "box", "bag", "container", "basket", "jar", "bottle", "tube", "stick", "string", "rope",
+      "wire", "chain", "hook", "clip", "pin", "button", "zipper", "velcro", "magnet", "sticker"
+    ];
+    
+    // Filter out used words
+    const availableWords = wordList.filter(word => !room.usedWords.includes(word));
+    
+    // If all words used, reset the used words list
+    if (availableWords.length === 0) {
+      room.usedWords = [];
+    }
+    
+    const newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    room.usedWords.push(newWord);
+    
     io.to(roomId).emit("new-round", { round: room.round, word: newWord });
   }
 
@@ -166,6 +240,18 @@ io.on("connection", (socket) => {
 
   socket.on("send-message", ({ roomId, user, message }) => {
     io.to(roomId).emit("chat-message", { user, message });
+  });
+
+  socket.on("update-avatar", ({ roomId, avatarData }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    
+    // Store avatar in room data
+    if (!room.avatars) room.avatars = {};
+    room.avatars[socket.id] = avatarData;
+    
+    // Broadcast avatar update to all players in room
+    io.to(roomId).emit("avatar-updated", { playerId: socket.id, avatarData });
   });
 
   socket.on("disconnecting", () => {

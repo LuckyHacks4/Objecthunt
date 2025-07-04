@@ -99,8 +99,18 @@ const App = () => {
 
   const playLoadingSound = () => {
     try {
-      // Create a simple beep sound for loading
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Only create AudioContext if it's not already created or if it's suspended
+      let audioContext = window.audioContext;
+      if (!audioContext || audioContext.state === 'suspended') {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        window.audioContext = audioContext;
+      }
+      
+      // Resume context if suspended
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -121,8 +131,7 @@ const App = () => {
     }
   };
     
-    // Play loading sound after a short delay
-    setTimeout(playLoadingSound, 500);
+    // Don't play loading sound automatically - wait for user interaction
   }, []);
 
   useEffect(() => {
@@ -258,7 +267,16 @@ const App = () => {
           
           // Play celebration sound
           try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let audioContext = window.audioContext;
+            if (!audioContext || audioContext.state === 'suspended') {
+              audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              window.audioContext = audioContext;
+            }
+            
+            if (audioContext.state === 'suspended') {
+              audioContext.resume();
+            }
+            
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             
@@ -359,7 +377,16 @@ const App = () => {
       // Play fast beep sound for last 10 seconds
       if (votingTimeLeft <= 10 && votingTimeLeft > 0) {
         try {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          let audioContext = window.audioContext;
+          if (!audioContext || audioContext.state === 'suspended') {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            window.audioContext = audioContext;
+          }
+          
+          if (audioContext.state === 'suspended') {
+            audioContext.resume();
+          }
+          
           const oscillator = audioContext.createOscillator();
           const gainNode = audioContext.createGain();
           
@@ -381,7 +408,16 @@ const App = () => {
     } else if (gameState === "voting" && votingTimeLeft === 0) {
       // Play timeout sound
       try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let audioContext = window.audioContext;
+        if (!audioContext || audioContext.state === 'suspended') {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          window.audioContext = audioContext;
+        }
+        
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -437,6 +473,12 @@ const App = () => {
 
   const createRoom = () => {
     if (!username.trim() || !roomId.trim()) return;
+    
+    // Initialize audio context on user interaction
+    if (window.audioContext && window.audioContext.state === 'suspended') {
+      window.audioContext.resume();
+    }
+    
     console.log("Creating room:", { roomId, username, socketId: mySocketId, roundTime, maxPlayers });
     socket.emit("create-room", { roomId, username, roundTime, maxPlayers });
     setJoinedRoom(true);
@@ -449,6 +491,11 @@ const App = () => {
   };
 
   const startGame = () => {
+    // Initialize audio context on user interaction
+    if (window.audioContext && window.audioContext.state === 'suspended') {
+      window.audioContext.resume();
+    }
+    
     // Start the first round of the game with custom words
     socket.emit("next-round", { roomId, customWords });
   };
@@ -488,7 +535,17 @@ const App = () => {
     
     // Play a nicer camera sound
     try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Initialize audio context on user interaction
+      let audioContext = window.audioContext;
+      if (!audioContext || audioContext.state === 'suspended') {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        window.audioContext = audioContext;
+      }
+      
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+      
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       

@@ -149,12 +149,29 @@ const App = () => {
 
     console.log("Initial socket ID:", socket.id);
     setMySocketId(socket.id);
+    
     socket.on("connect", () => {
       console.log("Socket connected, new ID:", socket.id);
       setMySocketId(socket.id);
     });
+    
+    socket.on("connect_error", (error) => {
+      console.error("Socket connection error:", error);
+      alert("Connection failed. Please refresh the page.");
+    });
+    
+    socket.on("disconnect", (reason) => {
+      console.log("Socket disconnected:", reason);
+      if (reason === "io server disconnect") {
+        // the disconnection was initiated by the server, you need to reconnect manually
+        socket.connect();
+      }
+    });
+    
     return () => {
       socket.off("connect");
+      socket.off("connect_error");
+      socket.off("disconnect");
     };
   }, []);
 

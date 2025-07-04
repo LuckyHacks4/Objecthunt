@@ -3,9 +3,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import socket from "./socket";
-import shutterSoundFile from "./sounds/shutter.mp3";
-import voteSoundFile from "./sounds/vote.mp3";
-import endSoundFile from "./sounds/end.mp3";
+import shutterSoundFile from "./sounds/shutter.mp3.mp3";
+import voteSoundFile from "./sounds/vote.mp3.mp3";
+import endSoundFile from "./sounds/end.mp3.mp3";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "./logo.png";
 import bg from "./bg.png";
@@ -35,14 +35,77 @@ const App = () => {
   const [mySocketId, setMySocketId] = useState(null);
   const [roundTime, setRoundTime] = useState(60);
   const [maxPlayers, setMaxPlayers] = useState(6);
+  const [hasSubmittedPhoto, setHasSubmittedPhoto] = useState(false);
+  const [photoSubmitted, setPhotoSubmitted] = useState(false);
+  const [showLoading, setShowLoading] = useState(true);
+  const [playerAvatars, setPlayerAvatars] = useState({});
+  const [showAvatarCamera, setShowAvatarCamera] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
   
   const videoRef = useRef();
   const canvasRef = useRef();
-  const shutterSound = useRef(new Audio(shutterSoundFile));
-  const voteSound = useRef(new Audio(voteSoundFile));
-  const endSound = useRef(new Audio(endSoundFile));
+  const shutterSound = useRef();
+  const voteSound = useRef();
+  const endSound = useRef();
+
+  // Initialize sounds
+  useEffect(() => {
+    shutterSound.current = new Audio(shutterSoundFile);
+    voteSound.current = new Audio(voteSoundFile);
+    endSound.current = new Audio(endSoundFile);
+    
+    // Preload sounds
+    shutterSound.current.load();
+    voteSound.current.load();
+    endSound.current.load();
+    
+    // Set volume
+    shutterSound.current.volume = 0.5;
+    voteSound.current.volume = 0.5;
+    endSound.current.volume = 0.5;
+    
+    // Play loading sound
+    const playLoadingSound = () => {
+      try {
+        // Create a simple beep sound for loading
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+        
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+      } catch (error) {
+        console.log("Could not play loading sound:", error);
+      }
+    };
+    
+    // Play loading sound after a short delay
+    setTimeout(playLoadingSound, 500);
+  }, []);
 
   useEffect(() => {
+    // Check for room parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomFromUrl = urlParams.get('room');
+    if (roomFromUrl) {
+      setRoomId(roomFromUrl);
+    }
+
+    // Initial loading screen
+    setTimeout(() => {
+      setShowLoading(false);
+    }, 2000);
+
     console.log("Initial socket ID:", socket.id);
     setMySocketId(socket.id);
     socket.on("connect", () => {
@@ -77,6 +140,8 @@ const App = () => {
       setMyVotes(new Set());
       setVotingProgress({});
       setShowRoundResults(false);
+      setHasSubmittedPhoto(false);
+      setPhotoSubmitted(false);
     });
 
     socket.on("start-voting", (subs) => {
@@ -145,31 +210,33 @@ const App = () => {
 
   // --- CAMERA LOGIC ---
   useEffect(() => {
-    if (showCamera) {
-      (async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setCameraStream(stream);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (err) {
-          console.error("Error accessing camera:", err);
-        }
-      })();
+    if (showCamera || showAvatarCamera) {
+      document.body.classList.add('modal-open');
+      // Camera stream is handled by startCamera and startAvatarCamera functions
     } else {
       // Clean up camera stream
       if (cameraStream) {
         cameraStream.getTracks().forEach(track => track.stop());
         setCameraStream(null);
       }
+      document.body.classList.remove('modal-open');
     }
-  }, [showCamera]);
+  }, [showCamera, showAvatarCamera, cameraStream]);
 
   useEffect(() => {
     if (videoRef.current && cameraStream) {
       videoRef.current.srcObject = cameraStream;
     }
+  }, [cameraStream]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('modal-open');
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [cameraStream]);
 
   const createRoom = () => {
@@ -202,6 +269,10 @@ const App = () => {
     setPhotoData(photoData);
     shutterSound.current.play();
     
+    // Show confirmation
+    setPhotoSubmitted(true);
+    setHasSubmittedPhoto(true);
+    
     socket.emit("submit-photo", {
       roomId,
       photoData,
@@ -209,6 +280,11 @@ const App = () => {
     });
     
     setShowCamera(false);
+    
+    // Hide confirmation after 3 seconds
+    setTimeout(() => {
+      setPhotoSubmitted(false);
+    }, 3000);
   };
 
   const vote = (photoIndex, vote) => {
@@ -231,14 +307,101 @@ const App = () => {
   };
 
   const startCamera = async () => {
+    if (hasSubmittedPhoto) {
+      alert("You have already submitted a photo for this round!");
+      return;
+    }
+    
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: facingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      setCameraStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setShowCamera(true);
     } catch (err) {
       console.error("Error accessing camera:", err);
+    }
+  };
+
+  const startAvatarCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user', // Always start with front camera for avatar
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setShowAvatarCamera(true);
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+    }
+  };
+
+  const flipCamera = async () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+    }
+    setFacingMode(facingMode === 'user' ? 'environment' : 'user');
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: facingMode === 'user' ? 'environment' : 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      setCameraStream(stream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error flipping camera:", err);
+    }
+  };
+
+  const takeAvatarPhoto = async () => {
+    if (!videoRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    
+    // Crop to focus on face (center 60% of the image)
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const croppedCanvas = document.createElement('canvas');
+    const croppedCtx = croppedCanvas.getContext('2d');
+    
+    const cropSize = Math.min(canvas.width, canvas.height) * 0.6;
+    const cropX = (canvas.width - cropSize) / 2;
+    const cropY = (canvas.height - cropSize) / 2;
+    
+    croppedCanvas.width = cropSize;
+    croppedCanvas.height = cropSize;
+    croppedCtx.drawImage(canvas, cropX, cropY, cropSize, cropSize, 0, 0, cropSize, cropSize);
+    
+    const avatarData = croppedCanvas.toDataURL("image/jpeg");
+    setPlayerAvatars(prev => ({ ...prev, [mySocketId]: avatarData }));
+    setShowAvatarCamera(false);
+    
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
     }
   };
 
@@ -263,6 +426,13 @@ const App = () => {
   const renderLobby = () => {
     // Determine if current user is admin (host)
     const isAdmin = players.length > 0 && players[0].id === mySocketId;
+    const shareUrl = `${window.location.origin}?room=${roomId}`;
+    
+    const copyShareLink = () => {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Share link copied to clipboard!');
+    };
+
     return (
       <motion.div 
         initial={{ opacity: 0 }}
@@ -327,19 +497,45 @@ const App = () => {
               <div className="space-y-2 mb-4">
                 {players.map((player, index) => (
                   <div key={player.id} className="flex items-center justify-between p-2 bg-accent rounded-xl border border-primary-light">
-                    <span className="font-bold text-secondary">{player.name}</span>
-                    <span className={`px-2 py-1 rounded text-sm ${player.ready ? 'bg-primary text-white' : 'bg-gray-300 text-secondary'}`}>
-                      {player.ready ? 'Ready' : 'Not Ready'}
-                    </span>
-                    {player.id === mySocketId && !player.ready && (
-                      <button onClick={handleReady} className={`ml-2 ${orangeButtonOutline} px-3 py-1 text-sm`}>Ready</button>
-                    )}
-                    {isAdmin && player.id !== mySocketId && (
-                      <button onClick={() => handleKick(player.id)} className="ml-2 text-xs text-red-600 font-bold px-2 py-1 rounded border border-red-300 hover:bg-red-100">Kick</button>
-                    )}
+                    <div className="flex items-center space-x-3">
+                      {playerAvatars[player.id] ? (
+                        <img 
+                          src={playerAvatars[player.id]} 
+                          alt="Avatar" 
+                          className="w-8 h-8 rounded-full object-cover border-2 border-primary"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+                          👤
+                        </div>
+                      )}
+                      <span className="font-bold text-secondary">{player.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 rounded text-sm ${player.ready ? 'bg-primary text-white' : 'bg-gray-300 text-secondary'}`}>
+                        {player.ready ? 'Ready' : 'Not Ready'}
+                      </span>
+                      {player.id === mySocketId && !player.ready && (
+                        <button onClick={handleReady} className={`${orangeButtonOutline} px-3 py-1 text-sm`}>Ready</button>
+                      )}
+                      {isAdmin && player.id !== mySocketId && (
+                        <button onClick={() => handleKick(player.id)} className="text-xs text-red-600 font-bold px-2 py-1 rounded border border-red-300 hover:bg-red-100">Kick</button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
+              
+              {/* Avatar button for current user */}
+              {!playerAvatars[mySocketId] && (
+                <button
+                  onClick={startAvatarCamera}
+                  className={`w-full mb-4 ${orangeButtonOutline}`}
+                >
+                  📸 Take Avatar Photo
+                </button>
+              )}
+              
               {players.length >= 2 && players.every(p => p.ready) && isAdmin && (
                 <button
                   onClick={startGame}
@@ -348,8 +544,29 @@ const App = () => {
                   Start Game
                 </button>
               )}
-              <div className="mt-4 text-center text-primary-dark text-sm">Share the Room ID with friends to join!</div>
-              <div className="mt-2 text-xs text-primary-dark">Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b></div>
+              
+              {/* Share section */}
+              <div className="mt-4 p-3 bg-accent rounded-lg">
+                <div className="text-center text-primary-dark text-sm mb-2">Share with friends:</div>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 p-2 text-xs border border-primary-light rounded bg-white"
+                  />
+                  <button
+                    onClick={copyShareLink}
+                    className={`px-3 py-2 ${orangeButton} text-sm`}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              
+              <div className="mt-2 text-xs text-primary-dark text-center">
+                Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b>
+              </div>
             </div>
           )}
         </div>
@@ -383,24 +600,53 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-center">
-            <button
-              onClick={startCamera}
-              className={`${orangeButton} px-8 text-lg`}
-            >
-              📸 Take Photo
-            </button>
+            {hasSubmittedPhoto ? (
+              <div className="text-center">
+                <div className="text-2xl mb-2">✅</div>
+                <div className="text-lg font-semibold text-primary-dark">Photo Submitted!</div>
+                <div className="text-sm text-primary-dark">Waiting for other players...</div>
+              </div>
+            ) : (
+              <button
+                onClick={startCamera}
+                className={`${orangeButton} px-8 text-lg`}
+              >
+                📸 Take Photo
+              </button>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className={`${orangeOverlay} rounded-lg p-6`}>
-            <h3 className="text-xl font-semibold mb-4 text-primary-dark">Players</h3>
+            <h3 className="text-xl font-semibold mb-4 text-primary-dark">Players & Scores</h3>
             <div className="space-y-2">
-              {players.map((player) => (
-                <div key={player.id} className="flex justify-between items-center p-2 bg-accent rounded">
-                  <span className="font-bold text-secondary">{player.name}</span>
-                  <span className="font-semibold text-primary-dark">{scores[player.id] || 0} pts</span>
-                </div>
-              ))}
+              {players
+                .sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
+                .map((player, index) => {
+                  const isTopPlayer = index === 0 && (scores[player.id] || 0) > 0;
+                  return (
+                    <div key={player.id} className="flex justify-between items-center p-2 bg-accent rounded relative">
+                      <div className="flex items-center space-x-3">
+                        {isTopPlayer && (
+                          <div className="absolute -top-1 -left-1 text-2xl">👑</div>
+                        )}
+                        {playerAvatars[player.id] ? (
+                          <img 
+                            src={playerAvatars[player.id]} 
+                            alt="Avatar" 
+                            className="w-8 h-8 rounded-full object-cover border-2 border-primary"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+                            👤
+                          </div>
+                        )}
+                        <span className="font-bold text-secondary">{player.name}</span>
+                      </div>
+                      <span className="text-primary-dark font-semibold">{scores[player.id] || 0} pts</span>
+                    </div>
+                  );
+                })}
             </div>
           </div>
           <div className={`${orangeOverlay} rounded-lg p-6`}>
@@ -589,16 +835,70 @@ const App = () => {
     </div>
   );
 
+  // --- LOADING SCREEN ---
+  const renderLoadingScreen = () => (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center z-50"
+    >
+      <div className="text-center">
+        <motion.div
+          animate={{ 
+            scale: [1, 1.1, 1],
+            rotate: [0, 360]
+          }}
+          transition={{ 
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+          className="mb-8"
+        >
+          <img src={logo} alt="Object Hunt Logo" className="h-32 mx-auto drop-shadow-2xl" />
+        </motion.div>
+        <motion.h1 
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-4xl font-bold text-white mb-4 drop-shadow-lg"
+        >
+          Object Hunt
+        </motion.h1>
+        <motion.div
+          animate={{ width: [0, 200, 0] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className="h-2 bg-white rounded-full mx-auto"
+        />
+        <motion.p
+          animate={{ opacity: [0.5, 1] }}
+          transition={{ duration: 1, repeat: Infinity, repeatType: "reverse" }}
+          className="text-white mt-4 text-lg"
+        >
+          Loading...
+        </motion.p>
+      </div>
+    </motion.div>
+  );
+
   // --- CAMERA MODAL ---
   const renderCamera = () => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
       <div className={`${orangeOverlay} rounded-lg p-4 max-w-md w-full`}>
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          className="w-full rounded-lg mb-4"
-        />
+        <div className="relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full rounded-lg mb-4"
+          />
+          <button
+            onClick={flipCamera}
+            className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+          >
+            🔄
+          </button>
+        </div>
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         <div className="flex space-x-4">
           <button
@@ -609,6 +909,44 @@ const App = () => {
           </button>
           <button
             onClick={() => setShowCamera(false)}
+            className={`flex-1 ${orangeButtonOutline}`}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- AVATAR CAMERA MODAL ---
+  const renderAvatarCamera = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className={`${orangeOverlay} rounded-lg p-4 max-w-md w-full`}>
+        <h3 className="text-lg font-semibold mb-4 text-center text-primary-dark">Take Your Avatar Photo</h3>
+        <div className="relative">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            className="w-full rounded-lg mb-4"
+          />
+          <button
+            onClick={flipCamera}
+            className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70 transition-all"
+          >
+            🔄
+          </button>
+        </div>
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+        <div className="flex space-x-4">
+          <button
+            onClick={takeAvatarPhoto}
+            className={`flex-1 ${orangeButton}`}
+          >
+            📸 Set Avatar
+          </button>
+          <button
+            onClick={() => setShowAvatarCamera(false)}
             className={`flex-1 ${orangeButtonOutline}`}
           >
             Cancel
@@ -647,13 +985,31 @@ const App = () => {
       <div className="fixed inset-0" style={{background: 'rgba(255, 152, 0, 0.80)', zIndex: 1}} />
 
       <div className="relative z-10">
-        {gameState !== "lobby" && renderHeader()}
-        {showCamera && renderCamera()}
-        {showRoundResults && renderRoundResults()}
-        {gameState === "lobby" && renderLobby()}
-        {gameState === "playing" && renderGame()}
-        {gameState === "voting" && renderVoting()}
-        {gameState === "ended" && renderGameEnd()}
+        <AnimatePresence>
+          {showLoading && renderLoadingScreen()}
+        </AnimatePresence>
+        
+        {!showLoading && (
+          <>
+            {gameState !== "lobby" && renderHeader()}
+            {showCamera && renderCamera()}
+            {showAvatarCamera && renderAvatarCamera()}
+            {showRoundResults && renderRoundResults()}
+            {photoSubmitted && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+              >
+                ✅ Photo submitted successfully!
+              </motion.div>
+            )}
+            {gameState === "lobby" && renderLobby()}
+            {gameState === "playing" && renderGame()}
+            {gameState === "voting" && renderVoting()}
+            {gameState === "ended" && renderGameEnd()}
+          </>
+        )}
       </div>
     </div>
   );

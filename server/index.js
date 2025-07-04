@@ -58,7 +58,17 @@ io.on("connection", (socket) => {
   socket.on("submit-photo", ({ roomId, photoData, timestamp }) => {
     const room = rooms[roomId];
     if (!room) return;
+    
+    // Check if player already submitted a photo for this round
+    const existingSubmission = room.submissions.find(sub => sub.playerId === socket.id);
+    if (existingSubmission) {
+      console.log("Player already submitted photo for this round:", socket.id);
+      return;
+    }
+    
     room.submissions.push({ playerId: socket.id, photo: photoData, time: timestamp, votes: [] });
+    console.log(`Photo submitted by ${socket.id}. Total submissions: ${room.submissions.length}/${room.players.length}`);
+    
     if (room.submissions.length === room.players.length) {
       io.to(roomId).emit("start-voting", room.submissions);
       // Start voting countdown timer (use room.roundTime)

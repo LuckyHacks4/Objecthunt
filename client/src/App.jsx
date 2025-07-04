@@ -48,6 +48,30 @@ const App = () => {
   const [customWords, setCustomWords] = useState([]);
   const [newCustomWord, setNewCustomWord] = useState("");
   const [loadingFact, setLoadingFact] = useState("");
+
+  // --- FUNNY FACTS ---
+  const funnyFacts = [
+    "Did you know? The average person spends 6 months of their life waiting for red lights to turn green!",
+    "Fun fact: A group of flamingos is called a 'flamboyance'!",
+    "Here's something wild: Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!",
+    "Did you know? Bananas are berries, but strawberries aren't!",
+    "Fun fact: A day on Venus is longer than its year!",
+    "Here's a weird one: The shortest war in history lasted only 38 minutes!",
+    "Did you know? Cows have best friends and get stressed when separated!",
+    "Fun fact: The average person walks the equivalent of three times around the world in a lifetime!",
+    "Here's something cool: A group of penguins is called a 'waddle'!",
+    "Did you know? The Great Wall of China is not visible from space with the naked eye!",
+    "Fun fact: A day on Mars is only 37 minutes longer than a day on Earth!",
+    "Here's wild: The average person spends 5 years of their life eating!",
+    "Did you know? A group of owls is called a 'parliament'!",
+    "Fun fact: The shortest complete sentence in English is 'I am'!",
+    "Here's something amazing: Your brain uses 20% of your body's total energy!",
+    "Did you know? A group of jellyfish is called a 'smack'!",
+    "Fun fact: The average person spends 6 months of their life waiting for things to load!",
+    "Here's a cool one: A day on Jupiter is only 10 hours long!",
+    "Did you know? The average person spends 2 weeks of their life kissing!",
+    "Fun fact: A group of cats is called a 'clowder'!"
+  ];
   
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -72,52 +96,30 @@ const App = () => {
     endSound.current.volume = 0.5;
     
     // Play loading sound
-    const playLoadingSound = () => {
-      try {
-        // Create a simple beep sound for loading
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
-        
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-      } catch (error) {
-        console.log("Could not play loading sound:", error);
-      }
-    };
 
-    const funnyFacts = [
-      "Did you know? The average person spends 6 months of their life waiting for red lights to turn green!",
-      "Fun fact: A group of flamingos is called a 'flamboyance'!",
-      "Here's something wild: Honey never spoils. Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old!",
-      "Did you know? Bananas are berries, but strawberries aren't!",
-      "Fun fact: A day on Venus is longer than its year!",
-      "Here's a weird one: The shortest war in history lasted only 38 minutes!",
-      "Did you know? Cows have best friends and get stressed when separated!",
-      "Fun fact: The average person walks the equivalent of three times around the world in a lifetime!",
-      "Here's something cool: A group of penguins is called a 'waddle'!",
-      "Did you know? The Great Wall of China is not visible from space with the naked eye!",
-      "Fun fact: A day on Mars is only 37 minutes longer than a day on Earth!",
-      "Here's wild: The average person spends 5 years of their life eating!",
-      "Did you know? A group of owls is called a 'parliament'!",
-      "Fun fact: The shortest complete sentence in English is 'I am'!",
-      "Here's something amazing: Your brain uses 20% of your body's total energy!",
-      "Did you know? A group of jellyfish is called a 'smack'!",
-      "Fun fact: The average person spends 6 months of their life waiting for things to load!",
-      "Here's a cool one: A day on Jupiter is only 10 hours long!",
-      "Did you know? The average person spends 2 weeks of their life kissing!",
-      "Fun fact: A group of cats is called a 'clowder'!"
-    ];
+  const playLoadingSound = () => {
+    try {
+      // Create a simple beep sound for loading
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      console.log("Could not play loading sound:", error);
+    }
+  };
     
     // Play loading sound after a short delay
     setTimeout(playLoadingSound, 500);

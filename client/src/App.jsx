@@ -43,6 +43,8 @@ const App = () => {
   const [facingMode, setFacingMode] = useState('user');
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownNumber, setCountdownNumber] = useState(3);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [winnerName, setWinnerName] = useState("");
   
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -101,11 +103,14 @@ const App = () => {
     const roomFromUrl = urlParams.get('room');
     if (roomFromUrl) {
       setRoomId(roomFromUrl);
-      // Auto-join the room if username is provided
-      const usernameFromUrl = urlParams.get('username');
-      if (usernameFromUrl) {
-        setUsername(usernameFromUrl);
-      }
+      // Generate random username instead of using the one from URL
+      const randomNames = [
+        "Player", "Gamer", "Hunter", "Seeker", "Finder", "Explorer", "Adventurer", "Champion", "Winner", "Hero",
+        "Star", "Legend", "Master", "Pro", "Elite", "Ninja", "Warrior", "Knight", "Wizard", "Mage"
+      ];
+      const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+      const randomNumber = Math.floor(Math.random() * 1000);
+      setUsername(`${randomName}${randomNumber}`);
     }
 
     // Initial loading screen
@@ -193,6 +198,47 @@ const App = () => {
       setScores(finalScores);
       setGameState("ended");
       endSound.current.play();
+      
+      // Find the game winner
+      const gameWinner = Object.entries(finalScores)
+        .sort(([,a], [,b]) => b - a)[0];
+      
+      if (gameWinner) {
+        const winnerPlayer = players.find(p => p.id === gameWinner[0]);
+        if (winnerPlayer) {
+          setWinnerName(winnerPlayer.name);
+          setShowCelebration(true);
+          
+          // Play celebration sound
+          try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            // Celebration sound (ascending notes)
+            oscillator.frequency.setValueAtTime(523, audioContext.currentTime); // C
+            oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.1); // E
+            oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.2); // G
+            oscillator.frequency.setValueAtTime(1047, audioContext.currentTime + 0.3); // C (high)
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+          } catch (error) {
+            console.log("Could not play celebration sound:", error);
+          }
+          
+          // Hide celebration after 5 seconds
+          setTimeout(() => {
+            setShowCelebration(false);
+          }, 5000);
+        }
+      }
     });
 
     socket.on("chat-message", (msg) => {
@@ -213,6 +259,20 @@ const App = () => {
       setPlayerAvatars(prev => ({ ...prev, [playerId]: avatarData }));
     });
 
+    socket.on("game-reset", (updatedPlayers) => {
+      setPlayers(updatedPlayers);
+      setGameState("lobby");
+      setRound(0);
+      setScores({});
+      setSubmissions([]);
+      setMyVotes(new Set());
+      setVotingProgress({});
+      setShowRoundResults(false);
+      setHasSubmittedPhoto(false);
+      setPhotoSubmitted(false);
+      setPlayerAvatars({});
+    });
+
     return () => {
       socket.off("room-update");
       socket.off("new-round");
@@ -221,6 +281,7 @@ const App = () => {
       socket.off("game-ended");
       socket.off("chat-message");
       socket.off("avatar-updated");
+      socket.off("game-reset");
     };
   }, [joinedRoom, mySocketId]);
 
@@ -307,7 +368,20 @@ const App = () => {
   };
 
   const startGame = () => {
-    socket.emit("next-round", roomId);
+    // Reset game state for new game
+    setGameState("lobby");
+    setRound(0);
+    setScores({});
+    setSubmissions([]);
+    setMyVotes(new Set());
+    setVotingProgress({});
+    setShowRoundResults(false);
+    setHasSubmittedPhoto(false);
+    setPhotoSubmitted(false);
+    setPlayerAvatars({});
+    
+    // Reset all players to not ready
+    socket.emit("reset-game", { roomId });
   };
 
   const exitLobby = () => {
@@ -325,7 +399,29 @@ const App = () => {
     
     const photoData = canvas.toDataURL("image/jpeg");
     setPhotoData(photoData);
-    shutterSound.current.play();
+    
+    // Play a nicer camera sound
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Pleasant camera shutter sound
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.05);
+      oscillator.frequency.setValueAtTime(400, audioContext.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+    } catch (error) {
+      console.log("Could not play camera sound:", error);
+    }
     
     // Show confirmation
     setPhotoSubmitted(true);
@@ -488,7 +584,7 @@ const App = () => {
   const renderLobby = () => {
     // Determine if current user is admin (host)
     const isAdmin = players.length > 0 && players[0].id === mySocketId;
-    const shareUrl = `${window.location.origin}?room=${roomId}&username=${encodeURIComponent(username)}`;
+    const shareUrl = `${window.location.origin}?room=${roomId}`;
     
     const copyShareLink = () => {
       navigator.clipboard.writeText(shareUrl);
@@ -995,6 +1091,84 @@ const App = () => {
     </motion.div>
   );
 
+  // --- CELEBRATION SCREEN ---
+  const renderCelebration = () => (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center z-50"
+    >
+      <div className="text-center">
+        {/* Balloons */}
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              initial={{ y: "100vh", x: Math.random() * window.innerWidth }}
+              animate={{ 
+                y: "-100px",
+                x: Math.random() * window.innerWidth,
+                rotate: [0, 360]
+              }}
+              transition={{ 
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2
+              }}
+              className="absolute text-4xl"
+              style={{ left: `${Math.random() * 100}%` }}
+            >
+              🎈
+            </motion.div>
+          ))}
+        </div>
+        
+        {/* Winner announcement */}
+        <motion.div
+          initial={{ scale: 0, y: 50 }}
+          animate={{ scale: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10"
+        >
+          <motion.div
+            animate={{ 
+              scale: [1, 1.1, 1],
+              rotate: [0, 5, -5, 0]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="text-6xl mb-4"
+          >
+            🏆
+          </motion.div>
+          <motion.h1
+            animate={{ 
+              color: ["#FFD700", "#FFA500", "#FF6347", "#FFD700"]
+            }}
+            transition={{ 
+              duration: 1,
+              repeat: Infinity
+            }}
+            className="text-5xl font-bold text-white mb-4 drop-shadow-2xl"
+          >
+            {winnerName} Wins!
+          </motion.h1>
+          <motion.p
+            animate={{ opacity: [0.5, 1] }}
+            transition={{ duration: 1, repeat: Infinity, repeatType: "reverse" }}
+            className="text-2xl text-white drop-shadow-lg"
+          >
+            🎉 Game Champion! 🎉
+          </motion.p>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+
   // --- CAMERA MODAL ---
   const renderCamera = () => (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -1110,6 +1284,7 @@ const App = () => {
             {showAvatarCamera && renderAvatarCamera()}
             {showRoundResults && renderRoundResults()}
             {showCountdown && renderCountdown()}
+            {showCelebration && renderCelebration()}
             {photoSubmitted && (
               <motion.div
                 initial={{ scale: 0 }}

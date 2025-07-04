@@ -254,6 +254,27 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("avatar-updated", { playerId: socket.id, avatarData });
   });
 
+  socket.on("reset-game", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    
+    // Reset game state
+    room.round = 0;
+    room.scores = {};
+    room.submissions = [];
+    room.gameEnded = false;
+    room.usedWords = [];
+    
+    // Reset all players to not ready
+    room.players.forEach(player => {
+      player.ready = false;
+      room.scores[player.id] = 0;
+    });
+    
+    // Broadcast reset to all players
+    io.to(roomId).emit("game-reset", room.players);
+  });
+
   socket.on("disconnecting", () => {
     for (const roomId in rooms) {
       rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);

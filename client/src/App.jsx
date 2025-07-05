@@ -9,6 +9,8 @@ import endSoundFile from "./sounds/end.mp3.mp3";
 import { motion, AnimatePresence } from "framer-motion";
 import logo from "./logo.png";
 import bg from "./bg.png";
+import MakeInIndiaLogo from "./components/MakeInIndiaLogo";
+import HowToPlayGuide from "./components/HowToPlayGuide";
 
 const App = () => {
   const [username, setUsername] = useState("");
@@ -48,6 +50,7 @@ const App = () => {
   const [customWords, setCustomWords] = useState([]);
   const [newCustomWord, setNewCustomWord] = useState("");
   const [loadingFact, setLoadingFact] = useState("");
+  const [showHowToPlay, setShowHowToPlay] = useState(false);
 
   // --- FUNNY FACTS ---
   const funnyFacts = [
@@ -742,7 +745,17 @@ const App = () => {
       >
         {renderHeader()}
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
-                        <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
+          <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
+          
+          {/* How to Play Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowHowToPlay(true)}
+            className="w-full mb-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
+          >
+            🎮 How to Play Guide 🎮
+          </motion.button>
           {!joinedRoom ? (
             <div className="space-y-4">
               <label htmlFor="username" className="sr-only">Your username</label>
@@ -1502,6 +1515,15 @@ const App = () => {
                 {gameState === "playing" && renderGame()}
                 {gameState === "voting" && renderVoting()}
                 {gameState === "ended" && renderGameEnd()}
+                
+                {/* How to Play Guide Modal */}
+                <HowToPlayGuide 
+                  isOpen={showHowToPlay} 
+                  onClose={() => setShowHowToPlay(false)} 
+                />
+                
+                {/* Make in India Logo */}
+                <MakeInIndiaLogo />
               </>
             )}
           </div>

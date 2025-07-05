@@ -11,6 +11,7 @@ import logo from "./logo.png";
 import bg from "./bg.png";
 import MakeInIndiaLogo from "./components/MakeInIndiaLogo";
 import HowToPlayGuide from "./components/HowToPlayGuide";
+import TermsOfService from "./components/TermsOfService";
 
 const App = () => {
   const [username, setUsername] = useState("");
@@ -51,6 +52,7 @@ const App = () => {
   const [newCustomWord, setNewCustomWord] = useState("");
   const [loadingFact, setLoadingFact] = useState("");
   const [showHowToPlay, setShowHowToPlay] = useState(false);
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
 
   // --- FUNNY FACTS ---
   const funnyFacts = [
@@ -1522,8 +1524,34 @@ const App = () => {
                   onClose={() => setShowHowToPlay(false)} 
                 />
                 
+                {/* Terms of Service Modal */}
+                <TermsOfService 
+                  isOpen={showTermsOfService} 
+                  onClose={() => setShowTermsOfService(false)} 
+                />
+                
                 {/* Make in India Logo */}
                 <MakeInIndiaLogo />
+                
+                {/* Footer with License Information */}
+                <footer className="fixed bottom-0 left-0 right-0 bg-black/80 text-white text-xs p-2 z-40">
+                  <div className="flex justify-between items-center max-w-6xl mx-auto px-4">
+                    <div className="flex items-center space-x-4">
+                      <span>© 2024 Object Hunt Game. All rights reserved.</span>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowTermsOfService(true)}
+                        className="text-orange-400 hover:text-orange-300 underline"
+                      >
+                        Terms of Service & License
+                      </motion.button>
+                    </div>
+                    <div className="text-gray-400">
+                      Protected by Copyright Law
+                    </div>
+                  </div>
+                </footer>
               </>
             )}
           </div>

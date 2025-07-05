@@ -79,9 +79,32 @@ Object Hunt is fully optimized for search engines with:
 - **GitHub**: [github.com/LuckyHacks4/Objecthunt](https://github.com/LuckyHacks4/Objecthunt)
 - **Contact**: [Contact Us](https://www.objecthunt.com/contact)
 
-### 📄 License
+### 📄 License & Copyright
 
-This project is open source and available under the MIT License.
+**Copyright © 2024 Object Hunt Game. All rights reserved.**
+
+This software is protected by copyright law and international treaties. Unauthorized copying, distribution, or commercial use is strictly prohibited.
+
+#### 🚫 What You CANNOT Do:
+- Copy, reproduce, or distribute the game
+- Create derivative works or similar games
+- Use for commercial purposes without permission
+- Remove copyright notices
+- Reverse engineer the code
+
+#### 💰 Commercial Use & Revenue Sharing:
+For YouTubers, influencers, and content creators:
+- **50% revenue sharing required**
+- Must contact us before creating content
+- All ad revenue and sponsorships must be shared
+- Proper attribution required
+
+#### 📧 Contact for Licensing:
+- Email: licensing@objecthunt.com
+- Website: https://www.objecthunt.com
+- All requests must be submitted in writing
+
+**⚠️ IMPORTANT**: By using this software, you agree to be bound by the license terms. Violations will result in legal action.
 
 ---
 
@@ -144,4 +167,12 @@ This project is deployed on Render.com and can be accessed at:
 
 ---
 
-**Built with ❤️ by LuckyHacks4** 
+**Built with ❤️ by LuckyHacks4**
+
+---
+
+## 📄 Complete License Agreement
+
+See [LICENSE](LICENSE) file for complete terms and conditions.
+
+**Copyright © 2024 Object Hunt Game. All rights reserved.** 

@@ -364,7 +364,7 @@ const App = () => {
       socket.off("avatar-updated");
       socket.off("game-reset");
     };
-  }, [joinedRoom, mySocketId]);
+  }, [joinedRoom, mySocketId, players]);
 
   useEffect(() => {
     let timer;

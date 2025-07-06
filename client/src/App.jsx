@@ -53,6 +53,13 @@ const App = () => {
   const [loadingFact, setLoadingFact] = useState("");
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
+  
+  // AFK Detection States
+  const [isAFK, setIsAFK] = useState(false);
+  const [lastActivity, setLastActivity] = useState(Date.now());
+  const [afkTimeout, setAfkTimeout] = useState(null);
+  const [pingInterval, setPingInterval] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
 
   // --- FUNNY FACTS ---
   const funnyFacts = [
@@ -140,19 +147,32 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    // Check for room parameter in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomFromUrl = urlParams.get('room');
-    if (roomFromUrl) {
-      setRoomId(roomFromUrl);
-      // Generate random username instead of using the one from URL
-      const randomNames = [
-        "Player", "Gamer", "Hunter", "Seeker", "Finder", "Explorer", "Adventurer", "Champion", "Winner", "Hero",
-        "Star", "Legend", "Master", "Pro", "Elite", "Ninja", "Warrior", "Knight", "Wizard", "Mage"
-      ];
-      const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
-      const randomNumber = Math.floor(Math.random() * 1000);
-      setUsername(`${randomName}${randomNumber}`);
+    // Session persistence and AFK detection setup
+    const savedSession = localStorage.getItem('objectHuntSession');
+    const savedRoomId = localStorage.getItem('objectHuntRoomId');
+    const savedUsername = localStorage.getItem('objectHuntUsername');
+    
+    if (savedSession && savedRoomId && savedUsername) {
+      // Try to restore session
+      setSessionId(savedSession);
+      setRoomId(savedRoomId);
+      setUsername(savedUsername);
+      console.log("🔄 Attempting to restore session:", { sessionId: savedSession, roomId: savedRoomId, username: savedUsername });
+    } else {
+      // Check for room parameter in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomFromUrl = urlParams.get('room');
+      if (roomFromUrl) {
+        setRoomId(roomFromUrl);
+        // Generate random username instead of using the one from URL
+        const randomNames = [
+          "Player", "Gamer", "Hunter", "Seeker", "Finder", "Explorer", "Adventurer", "Champion", "Winner", "Hero",
+          "Star", "Legend", "Master", "Pro", "Elite", "Ninja", "Warrior", "Knight", "Wizard", "Mage"
+        ];
+        const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+        const randomNumber = Math.floor(Math.random() * 1000);
+        setUsername(`${randomName}${randomNumber}`);
+      }
     }
 
     // Set a random funny fact
@@ -191,6 +211,72 @@ const App = () => {
     };
   }, []);
 
+  // AFK Detection and Activity Tracking
+  useEffect(() => {
+    const updateActivity = () => {
+      setLastActivity(Date.now());
+      if (isAFK) {
+        setIsAFK(false);
+        console.log("👤 User returned from AFK");
+        // Notify server that user is back
+        if (roomId && mySocketId) {
+          socket.emit("user-activity", { roomId, socketId: mySocketId });
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.log("👁️ Page hidden - user may be AFK");
+      } else {
+        updateActivity();
+      }
+    };
+
+    const handleUserActivity = () => {
+      updateActivity();
+    };
+
+    // Set up activity listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('mousedown', handleUserActivity);
+    document.addEventListener('keydown', handleUserActivity);
+    document.addEventListener('touchstart', handleUserActivity);
+    document.addEventListener('scroll', handleUserActivity);
+
+    // AFK timeout (5 minutes)
+    const afkCheck = setInterval(() => {
+      const timeSinceActivity = Date.now() - lastActivity;
+      if (timeSinceActivity > 5 * 60 * 1000 && !isAFK) { // 5 minutes
+        setIsAFK(true);
+        console.log("😴 User marked as AFK");
+        if (roomId && mySocketId) {
+          socket.emit("user-afk", { roomId, socketId: mySocketId });
+        }
+      }
+    }, 30000); // Check every 30 seconds
+
+    // WebSocket ping to keep connection alive
+    const ping = setInterval(() => {
+      if (socket.connected) {
+        socket.emit("ping");
+      }
+    }, 30000); // Ping every 30 seconds
+
+    setAfkTimeout(afkCheck);
+    setPingInterval(ping);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('mousedown', handleUserActivity);
+      document.removeEventListener('keydown', handleUserActivity);
+      document.removeEventListener('touchstart', handleUserActivity);
+      document.removeEventListener('scroll', handleUserActivity);
+      clearInterval(afkCheck);
+      clearInterval(ping);
+    };
+  }, [lastActivity, isAFK, roomId, mySocketId]);
+
   useEffect(() => {
     socket.on("room-update", (updatedPlayers) => {
       console.log("Room update received:", updatedPlayers);
@@ -203,6 +289,30 @@ const App = () => {
       const me = updatedPlayers.find(p => p.id === mySocketId);
       console.log("Found me in players:", me);
       setIsReady(!!me?.ready);
+    });
+
+    socket.on("session-restored", (data) => {
+      console.log("✅ Session restored successfully:", data);
+      setGameState(data.gameState || "lobby");
+      setRound(data.round || 0);
+      setScores(data.scores || {});
+      setSubmissions(data.submissions || []);
+      setMyVotes(new Set());
+      setVotingProgress({});
+      setShowRoundResults(false);
+      setHasSubmittedPhoto(false);
+      setPhotoSubmitted(false);
+      setPlayerAvatars(data.avatars || {});
+      setCustomWords(data.customWords || []);
+      setJoinedRoom(true);
+    });
+
+    socket.on("session-invalid", () => {
+      console.log("❌ Session invalid, clearing localStorage");
+      localStorage.removeItem('objectHuntSession');
+      localStorage.removeItem('objectHuntRoomId');
+      localStorage.removeItem('objectHuntUsername');
+      setSessionId(null);
     });
 
     socket.on("new-round", ({ round: newRound, word }) => {
@@ -258,15 +368,21 @@ const App = () => {
     });
 
     socket.on("game-ended", (finalScores) => {
+      console.log("🎉 Game ended event received!", finalScores);
+      console.log("Current players:", players);
       setScores(finalScores);
       
       // Find the game winner
       const gameWinner = Object.entries(finalScores)
         .sort(([,a], [,b]) => b - a)[0];
       
+      console.log("🏆 Game winner:", gameWinner);
+      
       if (gameWinner) {
         const winnerPlayer = players.find(p => p.id === gameWinner[0]);
+        console.log("👑 Winner player found:", winnerPlayer);
         if (winnerPlayer) {
+          console.log("🎊 Setting celebration for winner:", winnerPlayer.name);
           setWinnerName(winnerPlayer.name);
           setShowCelebration(true);
           
@@ -305,17 +421,30 @@ const App = () => {
           
           // Hide celebration after 5 seconds and show game end screen
           setTimeout(() => {
+            console.log("⏰ 5 seconds passed, hiding celebration and showing game end");
             setShowCelebration(false);
             setGameState("ended");
             endSound.current.play();
           }, 5000);
         } else {
-          setGameState("ended");
-          endSound.current.play();
+          console.log("❌ No winner player found, setting game state to ended");
+          // Still show celebration even if winner player not found
+          setShowCelebration(true);
+          setTimeout(() => {
+            setShowCelebration(false);
+            setGameState("ended");
+            endSound.current.play();
+          }, 5000);
         }
       } else {
-        setGameState("ended");
-        endSound.current.play();
+        console.log("❌ No game winner found, setting game state to ended");
+        // Still show celebration even if no winner
+        setShowCelebration(true);
+        setTimeout(() => {
+          setShowCelebration(false);
+          setGameState("ended");
+          endSound.current.play();
+        }, 5000);
       }
     });
 
@@ -441,6 +570,11 @@ const App = () => {
       } catch (error) {
         console.log("Could not play timeout sound:", error);
       }
+      
+      // Notify server that voting time is up
+      if (roomId) {
+        socket.emit("voting-timeout", { roomId });
+      }
     }
     return () => clearTimeout(timer);
   }, [votingTimeLeft, gameState]);
@@ -476,16 +610,52 @@ const App = () => {
     };
   }, [cameraStream]);
 
+  // Prevent accidental page reload/close during game
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (gameState !== "lobby" && gameState !== "ended") {
+        e.preventDefault();
+        e.returnValue = "Are you sure you want to leave? Your game progress will be lost.";
+        return "Are you sure you want to leave? Your game progress will be lost.";
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [gameState]);
+
+  const generateRoomCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
   const createRoom = () => {
-    if (!username.trim() || !roomId.trim()) return;
+    if (!username.trim()) return;
+    
+    // Auto-generate room code if not provided
+    const finalRoomId = roomId.trim() || generateRoomCode();
+    setRoomId(finalRoomId);
     
     // Initialize audio context on user interaction
     if (window.audioContext && window.audioContext.state === 'suspended') {
       window.audioContext.resume();
     }
     
-    console.log("Creating room:", { roomId, username, socketId: mySocketId, roundTime, maxPlayers });
-    socket.emit("create-room", { roomId, username, roundTime, maxPlayers });
+    // Generate session ID if not exists
+    const newSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(newSessionId);
+    
+    // Save session to localStorage
+    localStorage.setItem('objectHuntSession', newSessionId);
+    localStorage.setItem('objectHuntRoomId', roomId);
+    localStorage.setItem('objectHuntUsername', username);
+    
+    console.log("Creating room:", { roomId, username, socketId: mySocketId, roundTime, maxPlayers, sessionId: newSessionId });
+    socket.emit("create-room", { roomId, username, roundTime, maxPlayers, sessionId: newSessionId });
     setJoinedRoom(true);
   };
 
@@ -521,6 +691,10 @@ const App = () => {
     setHasSubmittedPhoto(false);
     setPhotoSubmitted(false);
     setPlayerAvatars({});
+    setShowCelebration(false);
+    setWinnerName("");
+    setCustomWords([]);
+    setNewCustomWord("");
     
     // Reset all players to not ready
     socket.emit("reset-game", { roomId });
@@ -770,16 +944,21 @@ const App = () => {
                 className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
                 aria-label="Enter your username"
               />
-              <label htmlFor="roomId" className="sr-only">Room ID</label>
-              <input
-                id="roomId"
-                type="text"
-                placeholder="Room ID"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
-                aria-label="Enter room ID"
-              />
+              <label htmlFor="roomId" className="sr-only">Room ID (Optional)</label>
+              <div className="space-y-2">
+                <input
+                  id="roomId"
+                  type="text"
+                  placeholder="Room ID (leave empty to auto-generate)"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+                  aria-label="Enter room ID (optional)"
+                />
+                <p className="text-xs text-primary-dark">
+                  💡 Leave empty to auto-generate a unique room code
+                </p>
+              </div>
               <div className="flex space-x-2">
                 <div className="flex-1">
                   <label className="block text-primary-dark text-sm font-semibold mb-1">Per-round time (seconds)</label>
@@ -831,7 +1010,10 @@ const App = () => {
                           👤
                         </div>
                       )}
-                      <span className="font-bold text-secondary">{player.name}</span>
+                      <span className="font-bold text-secondary">
+                        {player.name}
+                        {player.afk && <span className="text-yellow-600 ml-1">😴</span>}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 rounded text-sm ${player.ready ? 'bg-primary text-white' : 'bg-gray-300 text-secondary'}`}>
@@ -841,7 +1023,16 @@ const App = () => {
                         <button onClick={handleReady} className={`${orangeButtonOutline} px-3 py-1 text-sm`}>Ready</button>
                       )}
                       {isAdmin && player.id !== mySocketId && (
-                        <button onClick={() => handleKick(player.id)} className="text-xs text-red-600 font-bold px-2 py-1 rounded border border-red-300 hover:bg-red-100">Kick</button>
+                        <button 
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to kick ${player.name}?`)) {
+                              handleKick(player.id);
+                            }
+                          }} 
+                          className="text-xs bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-1 rounded transition-colors"
+                        >
+                          🚫 Kick
+                        </button>
                       )}
                     </div>
                   </div>
@@ -993,7 +1184,10 @@ const App = () => {
                             👤
                           </div>
                         )}
-                        <span className="font-bold text-secondary">{player.name}</span>
+                        <span className="font-bold text-secondary">
+                          {player.name}
+                          {player.afk && <span className="text-yellow-600 ml-1">😴</span>}
+                        </span>
                       </div>
                       <span className="text-primary-dark font-semibold">{scores[player.id] || 0} pts</span>
                     </div>
@@ -1302,7 +1496,9 @@ const App = () => {
   );
 
   // --- CELEBRATION SCREEN ---
-  const renderCelebration = () => (
+  const renderCelebration = () => {
+    console.log("🎈 Rendering celebration screen for winner:", winnerName);
+    return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -1365,7 +1561,7 @@ const App = () => {
             }}
             className="text-5xl font-bold text-white mb-4 drop-shadow-2xl"
           >
-            {winnerName} Wins!
+            {winnerName ? `${winnerName} Wins!` : "Game Complete!"}
           </motion.h1>
           <motion.p
             animate={{ opacity: [0.5, 1] }}
@@ -1377,7 +1573,8 @@ const App = () => {
         </motion.div>
       </div>
     </motion.div>
-  );
+    );
+  };
 
   // --- CAMERA MODAL ---
   const renderCamera = () => (
@@ -1503,7 +1700,10 @@ const App = () => {
                 {showAvatarCamera && renderAvatarCamera()}
                 {showRoundResults && renderRoundResults()}
                 {showCountdown && renderCountdown()}
-                {showCelebration && renderCelebration()}
+                {showCelebration && (() => {
+                  console.log("🎉 Celebration should be showing, showCelebration:", showCelebration);
+                  return renderCelebration();
+                })()}
                 {photoSubmitted && (
                   <motion.div
                     initial={{ scale: 0 }}
@@ -1517,6 +1717,17 @@ const App = () => {
                 {gameState === "playing" && renderGame()}
                 {gameState === "voting" && renderVoting()}
                 {gameState === "ended" && renderGameEnd()}
+                
+                {/* AFK Status Indicator */}
+                {isAFK && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50"
+                  >
+                    😴 You are currently AFK
+                  </motion.div>
+                )}
                 
                 {/* How to Play Guide Modal */}
                 <HowToPlayGuide 

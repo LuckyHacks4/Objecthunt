@@ -16,38 +16,87 @@ let votingTimers = {};
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("create-room", ({ roomId, username, roundTime = 60, maxPlayers = 6 }) => {
-    console.log("Create room request:", { roomId, username, socketId: socket.id, roundTime, maxPlayers });
-    if (!rooms[roomId]) {
-      console.log("Creating new room:", roomId);
-      rooms[roomId] = {
+  socket.on("create-room", ({ roomId, username, roundTime = 60, maxPlayers = 6, sessionId }) => {
+    console.log("Create room request:", { roomId, username, socketId: socket.id, roundTime, maxPlayers, sessionId });
+    
+    // Check for session restoration first
+    if (sessionId) {
+      for (const [existingRoomId, room] of Object.entries(rooms)) {
+        const existingPlayer = room.players.find(p => p.sessionId === sessionId);
+        if (existingPlayer) {
+          console.log("Session found, restoring player to room:", existingRoomId);
+          // Update socket ID for the existing player
+          existingPlayer.id = socket.id;
+          existingPlayer.sessionId = sessionId;
+          socket.join(existingRoomId);
+          io.to(existingRoomId).emit("session-restored", {
+            gameState: room.gameEnded ? "ended" : room.round > 0 ? "playing" : "lobby",
+            round: room.round,
+            scores: room.scores,
+            submissions: room.submissions,
+            avatars: room.avatars || {},
+            customWords: room.customWords || []
+          });
+          io.to(existingRoomId).emit("room-update", room.players);
+          return;
+        }
+      }
+      // Session not found, emit invalid session
+      socket.emit("session-invalid");
+    }
+    
+    // Generate room code if not provided
+    let finalRoomId = roomId;
+    if (!finalRoomId) {
+      do {
+        finalRoomId = generateRoomCode();
+      } while (rooms[finalRoomId]);
+    }
+    
+    if (!rooms[finalRoomId]) {
+      console.log("Creating new room:", finalRoomId);
+      rooms[finalRoomId] = {
         players: [],
         submissions: [],
         round: 0,
         scores: {},
         gameEnded: false,
         roundTime: Number(roundTime),
-        maxPlayers: Number(maxPlayers)
+        maxPlayers: Number(maxPlayers),
+        avatars: {},
+        customWords: []
       };
     }
+    
     // Enforce max players
-    if (rooms[roomId].players.length >= rooms[roomId].maxPlayers) {
+    if (rooms[finalRoomId].players.length >= rooms[finalRoomId].maxPlayers) {
       socket.emit("room-full");
       return;
     }
+    
     // Prevent duplicate player in room
-    if (!rooms[roomId].players.find(p => p.id === socket.id)) {
-      console.log("Adding player to room:", { username, socketId: socket.id });
-      const player = { id: socket.id, name: username, ready: false };
-      rooms[roomId].players.push(player);
-      rooms[roomId].scores[socket.id] = 0;
+    if (!rooms[finalRoomId].players.find(p => p.id === socket.id)) {
+      console.log("Adding player to room:", { username, socketId: socket.id, sessionId });
+      const player = { id: socket.id, name: username, ready: false, sessionId };
+      rooms[finalRoomId].players.push(player);
+      rooms[finalRoomId].scores[socket.id] = 0;
     } else {
       console.log("Player already in room:", socket.id);
     }
-    socket.join(roomId);
-    console.log("Room players after join:", rooms[roomId].players);
-    io.to(roomId).emit("room-update", rooms[roomId].players);
+    
+    socket.join(finalRoomId);
+    console.log("Room players after join:", rooms[finalRoomId].players);
+    io.to(finalRoomId).emit("room-update", rooms[finalRoomId].players);
   });
+
+  function generateRoomCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
 
   socket.on("player-ready", ({ roomId }) => {
     const player = rooms[roomId]?.players.find(p => p.id === socket.id);
@@ -71,13 +120,13 @@ io.on("connection", (socket) => {
     
     if (room.submissions.length === room.players.length) {
       io.to(roomId).emit("start-voting", room.submissions);
-      // Start voting countdown timer (use room.roundTime)
+      // Start voting countdown timer (30 seconds for voting)
       if (votingTimers[roomId]) {
         clearTimeout(votingTimers[roomId]);
       }
       votingTimers[roomId] = setTimeout(() => {
         processVotingResults(roomId);
-      }, (room.roundTime || 60) * 1000);
+      }, 30 * 1000); // Fixed 30 seconds for voting
     }
   });
 
@@ -331,6 +380,43 @@ io.on("connection", (socket) => {
     // Also forcibly disconnect the kicked player from the room
     io.to(playerId).emit("kicked");
     io.to(playerId).socketsLeave(roomId);
+  });
+
+  // AFK and ping handlers
+  socket.on("ping", () => {
+    // Simple ping response to keep connection alive
+    socket.emit("pong");
+  });
+
+  socket.on("user-afk", ({ roomId, socketId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    const player = room.players.find(p => p.id === socketId);
+    if (player) {
+      player.afk = true;
+      io.to(roomId).emit("room-update", room.players);
+      console.log(`Player ${player.name} is now AFK`);
+    }
+  });
+
+  socket.on("user-activity", ({ roomId, socketId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    const player = room.players.find(p => p.id === socketId);
+    if (player) {
+      player.afk = false;
+      io.to(roomId).emit("room-update", room.players);
+      console.log(`Player ${player.name} is back from AFK`);
+    }
+  });
+
+  socket.on("voting-timeout", ({ roomId }) => {
+    console.log("Voting timeout triggered for room:", roomId);
+    if (votingTimers[roomId]) {
+      clearTimeout(votingTimers[roomId]);
+      delete votingTimers[roomId];
+    }
+    processVotingResults(roomId);
   });
 });
 

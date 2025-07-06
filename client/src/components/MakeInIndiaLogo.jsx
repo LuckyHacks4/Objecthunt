@@ -6,7 +6,7 @@ const MakeInIndiaLogo = () => {
 
   return (
     <motion.div
-      className="fixed bottom-16 right-4 z-50 cursor-pointer"
+      className="fixed bottom-16 right-4 z-50 cursor-pointer md:block hidden"
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
       whileHover={{ scale: 1.1 }}

@@ -8,5 +8,8 @@
   },
   "engines": {
     "node": "18.x"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
   }
-} 
+}

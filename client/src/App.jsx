@@ -641,6 +641,7 @@ const App = () => {
       
       // Notify server that voting time is up
       if (roomId) {
+        console.log("Client voting timer expired, notifying server...");
         socket.emit("voting-timeout", { roomId });
       }
     }
@@ -857,6 +858,7 @@ const App = () => {
     setPhotoSubmitted(true);
     setHasSubmittedPhoto(true);
     
+    console.log(`Submitting photo for room ${roomId}`);
     socket.emit("submit-photo", {
       roomId,
       photoData,
@@ -874,6 +876,7 @@ const App = () => {
   const vote = (photoIndex, vote) => {
     if (myVotes.has(photoIndex)) return; // Prevent double voting
     
+    console.log(`Voting ${vote} on photo ${photoIndex} in room ${roomId}`);
     socket.emit("vote", { roomId, photoIndex, vote });
     setMyVotes(prev => new Set([...prev, photoIndex]));
     

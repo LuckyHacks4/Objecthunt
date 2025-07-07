@@ -10,8 +10,21 @@ const server = http.createServer(app);
 // Add CORS middleware
 app.use(cors());
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    rooms: Object.keys(rooms).length,
+    connections: io.engine.clientsCount
+  });
+});
+
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] }
+  cors: { origin: "*", methods: ["GET", "POST"] },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 let rooms = {};
@@ -231,7 +244,12 @@ io.on("connection", (socket) => {
         room.submissions.some(s => s.playerId !== p.id) // Players who can vote (not their own submission)
       );
       
-      const totalVotesNeeded = activeVoters.length * room.submissions.length;
+      // Calculate total votes needed: each voter votes on all submissions except their own
+      const totalVotesNeeded = activeVoters.reduce((total, voter) => {
+        const submissionsToVoteOn = room.submissions.filter(sub => sub.playerId !== voter.id);
+        return total + submissionsToVoteOn.length;
+      }, 0);
+      
       const totalVotesCast = room.submissions.reduce((total, sub) => {
         return total + sub.votes.filter(v => {
           const voter = room.players.find(p => p.id === v.voter);
@@ -239,7 +257,10 @@ io.on("connection", (socket) => {
         }).length;
       }, 0);
       
+      console.log(`Vote cast by ${socket.id}. Progress: ${totalVotesCast}/${totalVotesNeeded} votes`);
+      
       if (totalVotesCast >= totalVotesNeeded) {
+        console.log(`All votes received for room ${roomId}, processing results...`);
         // All votes are in, process results immediately
         if (votingTimers[roomId]) {
           clearTimeout(votingTimers[roomId]);
@@ -253,6 +274,8 @@ io.on("connection", (socket) => {
   function processVotingResults(roomId) {
     const room = rooms[roomId];
     if (!room) return;
+    
+    console.log(`Processing voting results for room ${roomId}`);
 
     // Process each submission
     room.submissions.forEach(submission => {
@@ -286,7 +309,10 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     room.round += 1;
+    console.log(`Starting round ${room.round} for room ${roomId}`);
+    
     if (room.round > room.numberOfRounds) {
+      console.log(`Game ended for room ${roomId}`);
       room.gameEnded = true;
       io.to(roomId).emit("game-ended", room.scores);
       return;
@@ -547,6 +573,27 @@ io.on("connection", (socket) => {
     }
     processVotingResults(roomId);
   });
+
+  // Handle socket disconnection more gracefully
+  socket.on("disconnect", (reason) => {
+    console.log("Socket disconnected:", socket.id, "Reason:", reason);
+    
+    // Mark player as AFK instead of immediately removing
+    for (const roomId in rooms) {
+      const room = rooms[roomId];
+      const disconnectedPlayer = room.players.find(p => p.id === socket.id);
+      
+      if (disconnectedPlayer) {
+        disconnectedPlayer.afk = true;
+        disconnectedPlayer.lastActivity = Date.now() - (6 * 60 * 1000);
+        console.log(`Player ${disconnectedPlayer.name} disconnected, marked as AFK`);
+        io.to(roomId).emit("room-update", room.players);
+        
+        // Check if we need to advance the game due to AFK players
+        checkGameProgression(roomId);
+      }
+    }
+  });
 });
 
 // Serve static files from the React app
@@ -575,6 +622,19 @@ app.get("*", (req, res) => {
 // Use PORT from environment variable (for Render) or default to 3001
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Add error handling for the server
+server.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // Helper functions for enhanced AFK handling
 function startAFKMonitoring(roomId) {
@@ -637,6 +697,7 @@ function startVotingPhase(roomId) {
   const room = rooms[roomId];
   if (!room) return;
   
+  console.log(`Starting voting phase for room ${roomId} with ${room.submissions.length} submissions`);
   io.to(roomId).emit("start-voting", room.submissions);
   
   // Start voting countdown timer (30 seconds for voting)
@@ -644,6 +705,8 @@ function startVotingPhase(roomId) {
     clearTimeout(votingTimers[roomId]);
   }
   votingTimers[roomId] = setTimeout(() => {
+    console.log(`Voting timer expired for room ${roomId}, processing results...`);
+    delete votingTimers[roomId];
     processVotingResults(roomId);
   }, 30 * 1000);
 }

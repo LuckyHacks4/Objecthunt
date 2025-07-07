@@ -207,14 +207,11 @@ const App = () => {
         setUsername(storedUsername);
         
         // Attempt to restore session
-        console.log("🔄 Emitting create-room for session restoration");
         socket.emit("create-room", { 
           roomId: storedRoomId, 
           username: storedUsername,
           sessionId: storedSessionId
         });
-      } else {
-        console.log("🔄 No saved session found, staying on main screen");
       }
     });
     
@@ -1030,26 +1027,6 @@ const App = () => {
             🎮 How to Play Guide 🎮
           </motion.button>
           
-          {/* New Quick Start Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              // Auto-generate room code
-              const autoRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-              setRoomId(autoRoomId);
-              // Set default game settings
-              setRoundTime(60);
-              setNumberOfRounds(3);
-              setMaxPlayers(6);
-              // Create room automatically
-              createRoom();
-            }}
-            className="w-full mb-6 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
-          >
-            🚀 Quick Start - Create Room Instantly! 🚀
-          </motion.button>
-          
           {/* Clear Session Button - Only show if there's a saved session */}
           {localStorage.getItem('objectHuntSession') && (
             <motion.button
@@ -1089,25 +1066,6 @@ const App = () => {
               🔄 Clear Saved Session & Start Fresh 🔄
             </motion.button>
           )}
-          
-          {/* Debug Button - Force Main Screen */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              console.log("🔧 Debug: Forcing main screen");
-              console.log("Current screen before:", currentScreen);
-              console.log("Game state:", gameState);
-              console.log("Joined room:", joinedRoom);
-              setCurrentScreen("main");
-              setJoinedRoom(false);
-              setGameState("lobby");
-              console.log("Current screen after:", "main");
-            }}
-            className="w-full mb-6 bg-gradient-to-r from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
-          >
-            🔧 Debug: Force Main Screen (Current: {currentScreen})
-          </motion.button>
           
           <div className="space-y-4">
             <label htmlFor="username" className="sr-only">Your username</label>
@@ -2082,16 +2040,10 @@ const App = () => {
                     ✅ Photo submitted successfully!
                   </motion.div>
                 )}
-                {currentScreen === "main" && (() => {
-                  console.log("🎯 Rendering main screen");
-                  return renderMainScreen();
-                })()}
+                {currentScreen === "main" && renderMainScreen()}
                 {currentScreen === "create-room" && renderCreateRoomScreen()}
                 {currentScreen === "join-room" && renderJoinRoomScreen()}
-                {currentScreen === "lobby" && (() => {
-                  console.log("🎯 Rendering lobby screen");
-                  return renderLobby();
-                })()}
+                {currentScreen === "lobby" && renderLobby()}
                 {gameState === "playing" && renderGame()}
                 {gameState === "voting" && renderVoting()}
                 {gameState === "ended" && renderGameEnd()}

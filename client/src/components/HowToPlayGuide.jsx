@@ -91,22 +91,22 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
     }
   };
 
-  // Initialize AdSense ad when component mounts
-  useEffect(() => {
-    if (isOpen && window.adsbygoogle) {
-      const timer = setTimeout(() => {
-        const adElement = document.querySelector('.adsbygoogle');
-        if (adElement && !adElement.hasAttribute('data-ad-status') && !adElement.querySelector('iframe')) {
-          try {
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
-          } catch (error) {
-            console.log('Error initializing HowToPlay ad:', error.message);
-          }
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
+  // Initialize AdSense ad when component mounts - temporarily disabled
+  // useEffect(() => {
+  //   if (isOpen && window.adsbygoogle) {
+  //     const timer = setTimeout(() => {
+  //       try {
+  //         const adElement = document.querySelector('.adsbygoogle:not([data-ad-status])');
+  //         if (adElement) {
+  //           (window.adsbygoogle = window.adsbygoogle || []).push({});
+  //         }
+  //       } catch (error) {
+  //         console.log('Error initializing HowToPlay ad:', error.message);
+  //       }
+  //     }, 2000);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [isOpen]);
 
   return (
     <AnimatePresence>

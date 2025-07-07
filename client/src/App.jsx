@@ -118,64 +118,28 @@ const App = () => {
     }
   }, []);
 
-  // Initialize AdSense ads when they are added to the DOM
-  useEffect(() => {
-    const initializeAds = () => {
-      if (window.adsbygoogle) {
-        console.log('Initializing AdSense ads...');
-        const adElements = document.querySelectorAll('.adsbygoogle');
-        console.log('Found', adElements.length, 'ad elements');
-        
-        let initializedCount = 0;
-        adElements.forEach((element, index) => {
-          // Check if ad is already initialized or has ads
-          const hasAds = element.hasAttribute('data-ad-status') || 
-                        element.querySelector('iframe') || 
-                        element.innerHTML.trim() !== '';
-          
-          if (!hasAds) {
-            console.log('Initializing ad element', index);
-            try {
-              (window.adsbygoogle = window.adsbygoogle || []).push({});
-              initializedCount++;
-            } catch (error) {
-              console.log('Error initializing ad element', index, ':', error.message);
-            }
-          } else {
-            console.log('Ad element', index, 'already has ads or status:', element.getAttribute('data-ad-status'));
-          }
-        });
-        
-        console.log('Successfully initialized', initializedCount, 'new ad elements');
-      } else {
-        console.log('AdSense not loaded yet');
-      }
-    };
+  // Simple AdSense initialization - temporarily disabled to fix white page issue
+  // useEffect(() => {
+  //   const initializeAds = () => {
+  //     if (window.adsbygoogle) {
+  //       try {
+  //         // Only initialize ads that haven't been initialized yet
+  //         const adElements = document.querySelectorAll('.adsbygoogle:not([data-ad-status])');
+  //         if (adElements.length > 0) {
+  //           console.log('Initializing', adElements.length, 'new ad elements');
+  //           (window.adsbygoogle = window.adsbygoogle || []).push({});
+  //         }
+  //       } catch (error) {
+  //           console.log('AdSense initialization error:', error.message);
+  //       }
+  //     }
+  //   };
 
-    // Only initialize once when component mounts, not on every screen change
-    const timer = setTimeout(initializeAds, 2000);
+  //   // Wait for AdSense to load and then initialize
+  //   const timer = setTimeout(initializeAds, 3000);
     
-    // Also set up a mutation observer to handle dynamically added ads
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList') {
-          const newAds = mutation.target.querySelectorAll('.adsbygoogle');
-          if (newAds.length > 0) {
-            console.log('New ad elements detected, initializing...');
-            setTimeout(initializeAds, 500);
-          }
-        }
-      });
-    });
-    
-    // Start observing the document body for new ad elements
-    observer.observe(document.body, { childList: true, subtree: true });
-    
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
-  }, []); // Remove dependencies to prevent multiple initializations
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   const playLoadingSound = () => {
     try {

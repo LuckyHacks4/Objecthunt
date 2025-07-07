@@ -1651,8 +1651,8 @@ const App = () => {
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full rounded-lg mb-4"
-            style={{ transform: 'scaleX(-1)' }}
+            muted
+            className="w-full rounded-lg mb-4 camera-mirror"
           />
           <button
             onClick={flipCamera}
@@ -1690,8 +1690,8 @@ const App = () => {
             ref={videoRef}
             autoPlay
             playsInline
-            className="w-full rounded-lg mb-4"
-            style={{ transform: 'scaleX(-1)' }}
+            muted
+            className="w-full rounded-lg mb-4 camera-mirror"
           />
           <button
             onClick={flipCamera}

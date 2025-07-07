@@ -81,3 +81,11 @@ textarea:focus {
 body.modal-open {
   overflow: hidden;
 }
+
+/* Camera mirror effect */
+.camera-mirror {
+  transform: scaleX(-1) !important;
+  -webkit-transform: scaleX(-1) !important;
+  -moz-transform: scaleX(-1) !important;
+  -ms-transform: scaleX(-1) !important;
+}

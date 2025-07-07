@@ -118,28 +118,65 @@ const App = () => {
     }
   }, []);
 
-  // Simple AdSense initialization - temporarily disabled to fix white page issue
-  // useEffect(() => {
-  //   const initializeAds = () => {
-  //     if (window.adsbygoogle) {
-  //       try {
-  //         // Only initialize ads that haven't been initialized yet
-  //         const adElements = document.querySelectorAll('.adsbygoogle:not([data-ad-status])');
-  //         if (adElements.length > 0) {
-  //           console.log('Initializing', adElements.length, 'new ad elements');
-  //           (window.adsbygoogle = window.adsbygoogle || []).push({});
-  //         }
-  //       } catch (error) {
-  //           console.log('AdSense initialization error:', error.message);
-  //       }
-  //     }
-  //   };
+  // AdSense initialization with better error handling
+  useEffect(() => {
+    const initializeAds = () => {
+      // Check if AdSense is loaded
+      if (typeof window.adsbygoogle === 'undefined') {
+        console.log('AdSense script not loaded yet, retrying...');
+        setTimeout(initializeAds, 1000);
+        return;
+      }
 
-  //   // Wait for AdSense to load and then initialize
-  //   const timer = setTimeout(initializeAds, 3000);
+      try {
+        // Find all ad elements that haven't been initialized
+        const adElements = document.querySelectorAll('.adsbygoogle');
+        console.log('Found', adElements.length, 'ad elements');
+        
+        adElements.forEach((element, index) => {
+          // Check if this element already has an ad
+          if (element.innerHTML.trim() === '' && !element.hasAttribute('data-adsbygoogle-status')) {
+            console.log('Initializing ad element', index + 1);
+            try {
+              (window.adsbygoogle = window.adsbygoogle || []).push({});
+            } catch (error) {
+              console.log('Error initializing individual ad:', error.message);
+            }
+          }
+        });
+      } catch (error) {
+        console.log('AdSense initialization error:', error.message);
+      }
+    };
+
+    // Wait for AdSense to load
+    const timer = setTimeout(initializeAds, 2000);
     
-  //   return () => clearTimeout(timer);
-  // }, []);
+    return () => clearTimeout(timer);
+  }, [currentScreen]); // Re-run when screen changes
+
+  // Additional ad initialization for specific screens
+  useEffect(() => {
+    if (currentScreen === 'main' || gameState === 'ended') {
+      const timer = setTimeout(() => {
+        if (window.adsbygoogle) {
+          try {
+            const uninitializedAds = document.querySelectorAll('.adsbygoogle:empty:not([data-adsbygoogle-status])');
+            if (uninitializedAds.length > 0) {
+              console.log('Reinitializing ads for screen:', currentScreen, 'gameState:', gameState);
+              uninitializedAds.forEach(() => {
+                (window.adsbygoogle = window.adsbygoogle || []).push({});
+              });
+            }
+          } catch (error) {
+            console.log('Screen-specific ad initialization error:', error.message);
+          }
+        }
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentScreen, gameState]);
 
   const playLoadingSound = () => {
     try {

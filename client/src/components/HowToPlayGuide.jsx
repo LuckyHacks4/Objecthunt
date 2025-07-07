@@ -175,6 +175,9 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
                      data-ad-format="fluid"
                      data-ad-client="ca-pub-1805547376392100"
                      data-ad-slot="2237097125"></ins>
+                <div className="text-center text-gray-500 text-xs mt-2">
+                  Advertisement
+                </div>
               </div>
             </motion.div>
 

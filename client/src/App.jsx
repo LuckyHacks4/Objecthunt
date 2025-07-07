@@ -122,17 +122,28 @@ const App = () => {
   useEffect(() => {
     const initializeAds = () => {
       if (window.adsbygoogle) {
+        console.log('Initializing AdSense ads...');
         const adElements = document.querySelectorAll('.adsbygoogle');
-        adElements.forEach(element => {
+        console.log('Found', adElements.length, 'ad elements');
+        adElements.forEach((element, index) => {
           if (!element.hasAttribute('data-ad-status')) {
+            console.log('Initializing ad element', index);
             (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } else {
+            console.log('Ad element', index, 'already has status:', element.getAttribute('data-ad-status'));
           }
         });
+      } else {
+        console.log('AdSense not loaded yet');
       }
     };
 
     // Initialize ads after a short delay to ensure DOM is ready
     const timer = setTimeout(initializeAds, 1000);
+    
+    // Also try to initialize immediately
+    initializeAds();
+    
     return () => clearTimeout(timer);
   }, [currentScreen, gameState]);
 
@@ -1052,6 +1063,9 @@ const App = () => {
                    data-ad-slot="6563354949"
                    data-ad-format="auto"
                    data-full-width-responsive="true"></ins>
+              <div className="text-center text-gray-500 text-xs mt-2">
+                Advertisement
+              </div>
             </div>
           </div>
           {/* Main Content */}
@@ -1075,6 +1089,9 @@ const App = () => {
                      data-ad-slot="4863260469"
                      data-ad-format="auto"
                      data-full-width-responsive="true"></ins>
+                <div className="text-center text-gray-500 text-xs mt-2">
+                  Advertisement
+                </div>
               </div>
             </div>
             {/* Clear Session Button - Only show if there's a saved session */}
@@ -1156,6 +1173,9 @@ const App = () => {
                    data-ad-slot="6563354949"
                    data-ad-format="auto"
                    data-full-width-responsive="true"></ins>
+              <div className="text-center text-gray-500 text-xs mt-2">
+                Advertisement
+              </div>
             </div>
           </div>
         </div>
@@ -1333,6 +1353,9 @@ const App = () => {
                    data-ad-slot="4863260469"
                    data-ad-format="auto"
                    data-full-width-responsive="true"></ins>
+              <div className="text-center text-gray-500 text-xs mt-2">
+                Advertisement
+              </div>
             </div>
           </div>
           
@@ -1743,6 +1766,9 @@ const App = () => {
                    data-ad-slot="4863260469"
                    data-ad-format="auto"
                    data-full-width-responsive="true"></ins>
+              <div className="text-center text-gray-500 text-xs mt-2">
+                Advertisement
+              </div>
             </div>
           </div>
           

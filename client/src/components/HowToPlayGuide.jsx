@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const HowToPlayGuide = ({ isOpen, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -91,6 +91,16 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
     }
   };
 
+  // Initialize AdSense ad when component mounts
+  useEffect(() => {
+    if (isOpen && window.adsbygoogle) {
+      const timer = setTimeout(() => {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -149,6 +159,23 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
               <p className="text-gray-700 text-lg leading-relaxed">
                 {steps[currentStep].content}
               </p>
+            </motion.div>
+
+            {/* Google AdSense In-Article Ad */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-200"
+            >
+              <div className="text-center">
+                <ins className="adsbygoogle"
+                     style={{display: 'block', textAlign: 'center'}}
+                     data-ad-layout="in-article"
+                     data-ad-format="fluid"
+                     data-ad-client="ca-pub-1805547376392100"
+                     data-ad-slot="2237097125"></ins>
+              </div>
             </motion.div>
 
             {/* Progress Dots */}

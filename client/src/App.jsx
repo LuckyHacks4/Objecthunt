@@ -112,7 +112,29 @@ const App = () => {
     voteSound.current.volume = 0.5;
     endSound.current.volume = 0.5;
     
-    // Play loading sound
+    // Initialize Google AdSense
+    if (window.adsbygoogle) {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    }
+  }, []);
+
+  // Initialize AdSense ads when they are added to the DOM
+  useEffect(() => {
+    const initializeAds = () => {
+      if (window.adsbygoogle) {
+        const adElements = document.querySelectorAll('.adsbygoogle');
+        adElements.forEach(element => {
+          if (!element.hasAttribute('data-ad-status')) {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          }
+        });
+      }
+    };
+
+    // Initialize ads after a short delay to ensure DOM is ready
+    const timer = setTimeout(initializeAds, 1000);
+    return () => clearTimeout(timer);
+  }, [currentScreen, gameState]);
 
   const playLoadingSound = () => {
     try {
@@ -147,9 +169,6 @@ const App = () => {
       console.log("Could not play loading sound:", error);
     }
   };
-    
-    // Don't play loading sound automatically - wait for user interaction
-  }, []);
 
   useEffect(() => {
     // Session persistence and AFK detection setup
@@ -1022,88 +1041,121 @@ const App = () => {
         className={`min-h-screen flex flex-col items-center justify-center p-4`}
       >
         {renderHeader()}
-        <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
-          <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
-          
-          {/* How to Play Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowHowToPlay(true)}
-            className="w-full mb-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
-          >
-            🎮 How to Play Guide 🎮
-          </motion.button>
-          
-          {/* Clear Session Button - Only show if there's a saved session */}
-          {localStorage.getItem('objectHuntSession') && (
+        {/* Main Content Container with Side Ads */}
+        <div className="flex items-center justify-center w-full max-w-6xl mx-auto">
+          {/* Left Side Ad */}
+          <div className="hidden lg:block w-64 mx-4">
+            <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client="ca-pub-1805547376392100"
+                   data-ad-slot="6563354949"
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+            </div>
+          </div>
+          {/* Main Content */}
+          <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
+            <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
+            {/* How to Play Button */}
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                // Clear all saved session data
-                localStorage.removeItem('objectHuntSession');
-                localStorage.removeItem('objectHuntRoomId');
-                localStorage.removeItem('objectHuntUsername');
-                // Reset all state
-                setSessionId(null);
-                setRoomId("");
-                setUsername("");
-                setJoinedRoom(false);
-                setCurrentScreen("main");
-                setGameState("lobby");
-                setPlayers([]);
-                setRound(0);
-                setScores({});
-                setSubmissions([]);
-                setMyVotes(new Set());
-                setVotingProgress({});
-                setShowRoundResults(false);
-                setHasSubmittedPhoto(false);
-                setPhotoSubmitted(false);
-                setPlayerAvatars({});
-                setShowCelebration(false);
-                setWinnerName("");
-                setCustomWords([]);
-                setNewCustomWord("");
-                // Force page reload to ensure clean state
-                window.location.reload();
-              }}
-              className="w-full mb-6 bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
+              onClick={() => setShowHowToPlay(true)}
+              className="w-full mb-6 bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
             >
-              🔄 Clear Saved Session & Start Fresh 🔄
+              🎮 How to Play Guide 🎮
             </motion.button>
-          )}
-          
-          <div className="space-y-4">
-            <label htmlFor="username" className="sr-only">Your username</label>
-            <input
-              id="username"
-              type="text"
-              placeholder="Your username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
-              aria-label="Enter your username"
-            />
-            
-            <div className="flex space-x-3">
+            {/* Google AdSense Rectangle Ad */}
+            <div className="w-full mb-6 flex justify-center">
+              <div className="bg-white rounded-lg p-2 shadow-md">
+                <ins className="adsbygoogle"
+                     style={{display: 'block'}}
+                     data-ad-client="ca-pub-1805547376392100"
+                     data-ad-slot="4863260469"
+                     data-ad-format="auto"
+                     data-full-width-responsive="true"></ins>
+              </div>
+            </div>
+            {/* Clear Session Button - Only show if there's a saved session */}
+            {localStorage.getItem('objectHuntSession') && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => setCurrentScreen("create-room")}
-                className={`flex-1 ${orangeButton}`}
+                onClick={() => {
+                  // Clear all saved session data
+                  localStorage.removeItem('objectHuntSession');
+                  localStorage.removeItem('objectHuntRoomId');
+                  localStorage.removeItem('objectHuntUsername');
+                  // Reset all state
+                  setSessionId(null);
+                  setRoomId("");
+                  setUsername("");
+                  setJoinedRoom(false);
+                  setCurrentScreen("main");
+                  setGameState("lobby");
+                  setPlayers([]);
+                  setRound(0);
+                  setScores({});
+                  setSubmissions([]);
+                  setMyVotes(new Set());
+                  setVotingProgress({});
+                  setShowRoundResults(false);
+                  setHasSubmittedPhoto(false);
+                  setPhotoSubmitted(false);
+                  setPlayerAvatars({});
+                  setShowCelebration(false);
+                  setWinnerName("");
+                  setCustomWords([]);
+                  setNewCustomWord("");
+                  // Force page reload to ensure clean state
+                  window.location.reload();
+                }}
+                className="w-full mb-6 bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
               >
-                🏠 Create Room
+                🔄 Clear Saved Session & Start Fresh 🔄
               </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setCurrentScreen("join-room")}
-                className={`flex-1 ${orangeButtonOutline}`}
-              >
-                🚪 Join Room
-              </motion.button>
+            )}
+            <div className="space-y-4">
+              <label htmlFor="username" className="sr-only">Your username</label>
+              <input
+                id="username"
+                type="text"
+                placeholder="Your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+                aria-label="Enter your username"
+              />
+              <div className="flex space-x-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setCurrentScreen("create-room")}
+                  className={`flex-1 ${orangeButton}`}
+                >
+                  🏠 Create Room
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setCurrentScreen("join-room")}
+                  className={`flex-1 ${orangeButtonOutline}`}
+                >
+                  🚪 Join Room
+                </motion.button>
+              </div>
+            </div>
+          </div>
+          {/* Right Side Ad */}
+          <div className="hidden lg:block w-64 mx-4">
+            <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client="ca-pub-1805547376392100"
+                   data-ad-slot="6563354949"
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
             </div>
           </div>
         </div>
@@ -1271,6 +1323,18 @@ const App = () => {
         {renderHeader()}
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
           <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
+          
+          {/* Google AdSense Rectangle Ad */}
+          <div className="w-full mb-4 flex justify-center">
+            <div className="bg-white rounded-lg p-2 shadow-md">
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client="ca-pub-1805547376392100"
+                   data-ad-slot="4863260469"
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+            </div>
+          </div>
           
           <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
             <div className="text-center text-primary-dark text-sm mb-2">Room Code: <span className="font-bold text-lg">{roomId}</span></div>
@@ -1669,6 +1733,19 @@ const App = () => {
         style={{ zIndex: 10 }}
       >
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
+          
+          {/* Google AdSense Rectangle Ad */}
+          <div className="w-full mb-6 flex justify-center">
+            <div className="bg-white rounded-lg p-2 shadow-md">
+              <ins className="adsbygoogle"
+                   style={{display: 'block'}}
+                   data-ad-client="ca-pub-1805547376392100"
+                   data-ad-slot="4863260469"
+                   data-ad-format="auto"
+                   data-full-width-responsive="true"></ins>
+            </div>
+          </div>
+          
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
           <div className="space-y-4">
             {Object.entries(scores)

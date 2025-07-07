@@ -1027,6 +1027,26 @@ const App = () => {
             🎮 How to Play Guide 🎮
           </motion.button>
           
+          {/* New Quick Start Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              // Auto-generate room code
+              const autoRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+              setRoomId(autoRoomId);
+              // Set default game settings
+              setRoundTime(60);
+              setNumberOfRounds(3);
+              setMaxPlayers(6);
+              // Create room automatically
+              createRoom();
+            }}
+            className="w-full mb-6 bg-gradient-to-r from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
+          >
+            🚀 Quick Start - Create Room Instantly! 🚀
+          </motion.button>
+          
           <div className="space-y-4">
             <label htmlFor="username" className="sr-only">Your username</label>
             <input

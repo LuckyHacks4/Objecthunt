@@ -125,27 +125,57 @@ const App = () => {
         console.log('Initializing AdSense ads...');
         const adElements = document.querySelectorAll('.adsbygoogle');
         console.log('Found', adElements.length, 'ad elements');
+        
+        let initializedCount = 0;
         adElements.forEach((element, index) => {
-          if (!element.hasAttribute('data-ad-status')) {
+          // Check if ad is already initialized or has ads
+          const hasAds = element.hasAttribute('data-ad-status') || 
+                        element.querySelector('iframe') || 
+                        element.innerHTML.trim() !== '';
+          
+          if (!hasAds) {
             console.log('Initializing ad element', index);
-            (window.adsbygoogle = window.adsbygoogle || []).push({});
+            try {
+              (window.adsbygoogle = window.adsbygoogle || []).push({});
+              initializedCount++;
+            } catch (error) {
+              console.log('Error initializing ad element', index, ':', error.message);
+            }
           } else {
-            console.log('Ad element', index, 'already has status:', element.getAttribute('data-ad-status'));
+            console.log('Ad element', index, 'already has ads or status:', element.getAttribute('data-ad-status'));
           }
         });
+        
+        console.log('Successfully initialized', initializedCount, 'new ad elements');
       } else {
         console.log('AdSense not loaded yet');
       }
     };
 
-    // Initialize ads after a short delay to ensure DOM is ready
-    const timer = setTimeout(initializeAds, 1000);
+    // Only initialize once when component mounts, not on every screen change
+    const timer = setTimeout(initializeAds, 2000);
     
-    // Also try to initialize immediately
-    initializeAds();
+    // Also set up a mutation observer to handle dynamically added ads
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList') {
+          const newAds = mutation.target.querySelectorAll('.adsbygoogle');
+          if (newAds.length > 0) {
+            console.log('New ad elements detected, initializing...');
+            setTimeout(initializeAds, 500);
+          }
+        }
+      });
+    });
     
-    return () => clearTimeout(timer);
-  }, [currentScreen, gameState]);
+    // Start observing the document body for new ad elements
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, []); // Remove dependencies to prevent multiple initializations
 
   const playLoadingSound = () => {
     try {

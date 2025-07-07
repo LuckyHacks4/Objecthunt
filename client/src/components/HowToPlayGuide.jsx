@@ -95,8 +95,15 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen && window.adsbygoogle) {
       const timer = setTimeout(() => {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-      }, 500);
+        const adElement = document.querySelector('.adsbygoogle');
+        if (adElement && !adElement.hasAttribute('data-ad-status') && !adElement.querySelector('iframe')) {
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (error) {
+            console.log('Error initializing HowToPlay ad:', error.message);
+          }
+        }
+      }, 1000);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);

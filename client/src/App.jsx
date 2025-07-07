@@ -1047,6 +1047,46 @@ const App = () => {
             🚀 Quick Start - Create Room Instantly! 🚀
           </motion.button>
           
+          {/* Clear Session Button - Only show if there's a saved session */}
+          {localStorage.getItem('objectHuntSession') && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                // Clear all saved session data
+                localStorage.removeItem('objectHuntSession');
+                localStorage.removeItem('objectHuntRoomId');
+                localStorage.removeItem('objectHuntUsername');
+                // Reset all state
+                setSessionId(null);
+                setRoomId("");
+                setUsername("");
+                setJoinedRoom(false);
+                setCurrentScreen("main");
+                setGameState("lobby");
+                setPlayers([]);
+                setRound(0);
+                setScores({});
+                setSubmissions([]);
+                setMyVotes(new Set());
+                setVotingProgress({});
+                setShowRoundResults(false);
+                setHasSubmittedPhoto(false);
+                setPhotoSubmitted(false);
+                setPlayerAvatars({});
+                setShowCelebration(false);
+                setWinnerName("");
+                setCustomWords([]);
+                setNewCustomWord("");
+                // Force page reload to ensure clean state
+                window.location.reload();
+              }}
+              className="w-full mb-6 bg-gradient-to-r from-red-400 to-red-600 hover:from-red-500 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-xl"
+            >
+              🔄 Clear Saved Session & Start Fresh 🔄
+            </motion.button>
+          )}
+          
           <div className="space-y-4">
             <label htmlFor="username" className="sr-only">Your username</label>
             <input

@@ -533,6 +533,7 @@ const App = () => {
     socket.on("game-reset", (updatedPlayers) => {
       setPlayers(updatedPlayers);
       setGameState("lobby");
+      setCurrentScreen("lobby"); // Reset to lobby screen
       setGameJustEnded(false); // Clear the game just ended flag
       setRound(0);
       setScores({});
@@ -756,6 +757,9 @@ const App = () => {
       window.audioContext.resume();
     }
     
+    // Update current screen to indicate we're no longer in lobby
+    setCurrentScreen("game");
+    
     // Start the first round of the game with custom words
     socket.emit("next-round", { roomId, customWords });
   };
@@ -784,6 +788,7 @@ const App = () => {
   const startNewGame = () => {
     // Reset game state for new game
     setGameState("lobby");
+    setCurrentScreen("lobby"); // Reset to lobby screen
     setGameJustEnded(false); // Clear the game just ended flag
     setRound(0);
     setScores({});
@@ -1451,7 +1456,8 @@ const App = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={`min-h-screen p-4 flex flex-col items-center justify-center`}
+      className={`fixed inset-0 p-4 flex flex-col items-center justify-center overflow-y-auto`}
+      style={{ zIndex: 10 }}
     >
       <div className="max-w-4xl mx-auto w-full">
         <div className={`${orangeOverlay} rounded-lg p-6 mb-4`}>
@@ -1554,7 +1560,8 @@ const App = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={`min-h-screen p-4 flex flex-col items-center justify-center`}
+      className={`fixed inset-0 p-4 flex flex-col items-center justify-center overflow-y-auto`}
+      style={{ zIndex: 10 }}
     >
       <div className="max-w-6xl mx-auto w-full">
         <div className="text-center mb-8">
@@ -1655,7 +1662,8 @@ const App = () => {
       <motion.div 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`min-h-screen flex items-center justify-center p-4`}
+        className={`fixed inset-0 flex items-center justify-center p-4 overflow-y-auto`}
+        style={{ zIndex: 10 }}
       >
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
@@ -2043,7 +2051,7 @@ const App = () => {
                 {currentScreen === "main" && renderMainScreen()}
                 {currentScreen === "create-room" && renderCreateRoomScreen()}
                 {currentScreen === "join-room" && renderJoinRoomScreen()}
-                {currentScreen === "lobby" && renderLobby()}
+                {currentScreen === "lobby" && gameState === "lobby" && renderLobby()}
                 {gameState === "playing" && renderGame()}
                 {gameState === "voting" && renderVoting()}
                 {gameState === "ended" && renderGameEnd()}

@@ -41,6 +41,14 @@ textarea:focus {
   top: 6px;
 }
 
+/* Ensure full viewport height */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
 /* Mobile-specific styles */
 @media (max-width: 768px) {
   .App {

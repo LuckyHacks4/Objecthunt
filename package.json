@@ -2,7 +2,7 @@
   "name": "object-hunt-fullstack",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "echo 'Starting build process...' && cd client && echo 'Installing client dependencies...' && npm install && echo 'Building client...' && npm run build && echo 'Build completed successfully!' && ls -la dist/",
     "start": "cd server && npm install && node index.js",
     "heroku-postbuild": "npm run build"
   },

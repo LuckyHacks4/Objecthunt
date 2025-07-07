@@ -6,6 +6,10 @@ const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
+
+// Add CORS middleware
+app.use(cors());
+
 const io = new Server(server, {
   cors: { origin: "*", methods: ["GET", "POST"] }
 });
@@ -546,11 +550,26 @@ io.on("connection", (socket) => {
 });
 
 // Serve static files from the React app
-app.use(express.static(path.join(__dirname, "../client/dist")));
+const staticPath = path.join(__dirname, "../client/dist");
+console.log("Static files path:", staticPath);
+
+// Check if dist folder exists
+const fs = require("fs");
+if (fs.existsSync(staticPath)) {
+  console.log("✅ Client dist folder found");
+  app.use(express.static(staticPath));
+} else {
+  console.log("❌ Client dist folder not found! Build may have failed.");
+}
 
 // For any other requests, send back React's index.html
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../client/dist", "index.html"));
+  const indexPath = path.join(__dirname, "../client/dist", "index.html");
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send("Client build not found. Please check the build process.");
+  }
 });
 
 // Use PORT from environment variable (for Render) or default to 3001

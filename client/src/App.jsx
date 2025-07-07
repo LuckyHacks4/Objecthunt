@@ -20,6 +20,7 @@ const App = () => {
   const [currentWord, setCurrentWord] = useState("");
   const [round, setRound] = useState(0);
   const [gameState, setGameState] = useState("lobby"); // lobby, playing, voting, ended
+  const [gameJustEnded, setGameJustEnded] = useState(false); // Track if game just ended vs reset
   const [submissions, setSubmissions] = useState([]);
   const [scores, setScores] = useState({});
   const [messages, setMessages] = useState([]);
@@ -189,6 +190,25 @@ const App = () => {
     socket.on("connect", () => {
       console.log("Socket connected, new ID:", socket.id);
       setMySocketId(socket.id);
+      
+      // Try to restore session if available
+      const storedSessionId = localStorage.getItem('objectHuntSession');
+      const storedRoomId = localStorage.getItem('objectHuntRoomId');
+      const storedUsername = localStorage.getItem('objectHuntUsername');
+      
+      if (storedSessionId && storedRoomId && storedUsername) {
+        console.log("🔄 Attempting to restore session:", { storedSessionId, storedRoomId, storedUsername });
+        setSessionId(storedSessionId);
+        setRoomId(storedRoomId);
+        setUsername(storedUsername);
+        
+        // Attempt to restore session
+        socket.emit("create-room", { 
+          roomId: storedRoomId, 
+          username: storedUsername,
+          sessionId: storedSessionId
+        });
+      }
     });
     
     socket.on("connect_error", (error) => {
@@ -198,16 +218,44 @@ const App = () => {
     
     socket.on("disconnect", (reason) => {
       console.log("Socket disconnected:", reason);
+      
+      // Show loading screen if we have a session to restore
+      const storedSessionId = localStorage.getItem('objectHuntSession');
+      const storedRoomId = localStorage.getItem('objectHuntRoomId');
+      const storedUsername = localStorage.getItem('objectHuntUsername');
+      
+      if (storedSessionId && storedRoomId && storedUsername && joinedRoom) {
+        console.log("🔄 Connection lost, will attempt to reconnect...");
+        setShowLoading(true);
+        setLoadingFact("Connection lost. Reconnecting...");
+      }
+      
       if (reason === "io server disconnect") {
         // the disconnection was initiated by the server, you need to reconnect manually
         socket.connect();
       }
     });
     
+    socket.on("reconnect", (attemptNumber) => {
+      console.log("Reconnected after", attemptNumber, "attempts");
+      // Hide loading screen after successful reconnection
+      setTimeout(() => {
+        setShowLoading(false);
+        setLoadingFact("");
+      }, 1000);
+    });
+
+    socket.on("reconnect_error", (error) => {
+      console.error("Reconnection failed:", error);
+      setLoadingFact("Reconnection failed. Please refresh the page.");
+    });
+
     return () => {
       socket.off("connect");
       socket.off("connect_error");
       socket.off("disconnect");
+      socket.off("reconnect");
+      socket.off("reconnect_error");
     };
   }, []);
 
@@ -244,17 +292,17 @@ const App = () => {
     document.addEventListener('touchstart', handleUserActivity);
     document.addEventListener('scroll', handleUserActivity);
 
-    // AFK timeout (5 minutes)
+    // AFK timeout (3 minutes to match server)
     const afkCheck = setInterval(() => {
       const timeSinceActivity = Date.now() - lastActivity;
-      if (timeSinceActivity > 5 * 60 * 1000 && !isAFK) { // 5 minutes
+      if (timeSinceActivity > 3 * 60 * 1000 && !isAFK) { // 3 minutes
         setIsAFK(true);
         console.log("😴 User marked as AFK");
         if (roomId && mySocketId) {
           socket.emit("user-afk", { roomId, socketId: mySocketId });
         }
       }
-    }, 30000); // Check every 30 seconds
+    }, 15000); // Check every 15 seconds for more responsiveness
 
     // WebSocket ping to keep connection alive
     const ping = setInterval(() => {
@@ -305,6 +353,16 @@ const App = () => {
       setPlayerAvatars(data.avatars || {});
       setCustomWords(data.customWords || []);
       setJoinedRoom(true);
+      
+      // Update room ID if provided by server (in case it was different)
+      if (data.roomId) {
+        setRoomId(data.roomId);
+        localStorage.setItem('objectHuntRoomId', data.roomId);
+      }
+      
+      // Hide loading screen after successful session restoration
+      setShowLoading(false);
+      setLoadingFact("");
     });
 
     socket.on("session-invalid", () => {
@@ -424,6 +482,7 @@ const App = () => {
             console.log("⏰ 5 seconds passed, hiding celebration and showing game end");
             setShowCelebration(false);
             setGameState("ended");
+            setGameJustEnded(true); // Mark that the game has just ended
             endSound.current.play();
           }, 5000);
         } else {
@@ -433,6 +492,7 @@ const App = () => {
           setTimeout(() => {
             setShowCelebration(false);
             setGameState("ended");
+            setGameJustEnded(true); // Mark that the game has just ended
             endSound.current.play();
           }, 5000);
         }
@@ -469,6 +529,7 @@ const App = () => {
     socket.on("game-reset", (updatedPlayers) => {
       setPlayers(updatedPlayers);
       setGameState("lobby");
+      setGameJustEnded(false); // Clear the game just ended flag
       setRound(0);
       setScores({});
       setSubmissions([]);
@@ -492,6 +553,8 @@ const App = () => {
       socket.off("chat-message");
       socket.off("avatar-updated");
       socket.off("game-reset");
+      socket.off("session-restored");
+      socket.off("session-invalid");
     };
   }, [joinedRoom, mySocketId, players]);
 
@@ -682,6 +745,7 @@ const App = () => {
   const startNewGame = () => {
     // Reset game state for new game
     setGameState("lobby");
+    setGameJustEnded(false); // Clear the game just ended flag
     setRound(0);
     setScores({});
     setSubmissions([]);
@@ -1368,12 +1432,14 @@ const App = () => {
             ) : (
               <div className="text-center">
                 <p className="text-primary-dark mb-3">Waiting for host to start a new game...</p>
-                <button
-                  onClick={exitLobby}
-                  className={`w-full ${orangeButtonOutline}`}
-                >
-                  Exit Lobby
-                </button>
+                {gameJustEnded && (
+                  <button
+                    onClick={exitLobby}
+                    className={`w-full ${orangeButtonOutline}`}
+                  >
+                    Exit Lobby
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -1586,6 +1652,7 @@ const App = () => {
             autoPlay
             playsInline
             className="w-full rounded-lg mb-4"
+            style={{ transform: 'scaleX(-1)' }}
           />
           <button
             onClick={flipCamera}
@@ -1624,6 +1691,7 @@ const App = () => {
             autoPlay
             playsInline
             className="w-full rounded-lg mb-4"
+            style={{ transform: 'scaleX(-1)' }}
           />
           <button
             onClick={flipCamera}

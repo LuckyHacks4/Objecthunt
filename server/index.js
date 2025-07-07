@@ -12,6 +12,8 @@ const io = new Server(server, {
 
 let rooms = {};
 let votingTimers = {};
+let photoSubmissionTimers = {};
+let afkCheckTimers = {};
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
@@ -26,8 +28,18 @@ io.on("connection", (socket) => {
         if (existingPlayer) {
           console.log("Session found, restoring player to room:", existingRoomId);
           // Update socket ID for the existing player
+          const oldSocketId = existingPlayer.id;
           existingPlayer.id = socket.id;
           existingPlayer.sessionId = sessionId;
+          existingPlayer.afk = false; // Mark as not AFK when reconnecting
+          existingPlayer.lastActivity = Date.now();
+          
+          // Update scores mapping
+          if (room.scores[oldSocketId] !== undefined) {
+            room.scores[socket.id] = room.scores[oldSocketId];
+            delete room.scores[oldSocketId];
+          }
+          
           socket.join(existingRoomId);
           io.to(existingRoomId).emit("session-restored", {
             gameState: room.gameEnded ? "ended" : room.round > 0 ? "playing" : "lobby",
@@ -35,7 +47,8 @@ io.on("connection", (socket) => {
             scores: room.scores,
             submissions: room.submissions,
             avatars: room.avatars || {},
-            customWords: room.customWords || []
+            customWords: room.customWords || [],
+            roomId: existingRoomId
           });
           io.to(existingRoomId).emit("room-update", room.players);
           return;
@@ -64,7 +77,8 @@ io.on("connection", (socket) => {
         roundTime: Number(roundTime),
         maxPlayers: Number(maxPlayers),
         avatars: {},
-        customWords: []
+        customWords: [],
+        usedWords: []
       };
     }
     
@@ -77,7 +91,14 @@ io.on("connection", (socket) => {
     // Prevent duplicate player in room
     if (!rooms[finalRoomId].players.find(p => p.id === socket.id)) {
       console.log("Adding player to room:", { username, socketId: socket.id, sessionId });
-      const player = { id: socket.id, name: username, ready: false, sessionId };
+      const player = { 
+        id: socket.id, 
+        name: username, 
+        ready: false, 
+        sessionId,
+        afk: false,
+        lastActivity: Date.now()
+      };
       rooms[finalRoomId].players.push(player);
       rooms[finalRoomId].scores[socket.id] = 0;
     } else {
@@ -87,6 +108,9 @@ io.on("connection", (socket) => {
     socket.join(finalRoomId);
     console.log("Room players after join:", rooms[finalRoomId].players);
     io.to(finalRoomId).emit("room-update", rooms[finalRoomId].players);
+    
+    // Start AFK monitoring for this room
+    startAFKMonitoring(finalRoomId);
   });
 
   function generateRoomCode() {
@@ -114,37 +138,73 @@ io.on("connection", (socket) => {
       console.log("Player already submitted photo for this round:", socket.id);
       return;
     }
+
+    // Update player activity
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      player.lastActivity = Date.now();
+      player.afk = false;
+    }
     
     room.submissions.push({ playerId: socket.id, photo: photoData, time: timestamp, votes: [] });
     console.log(`Photo submitted by ${socket.id}. Total submissions: ${room.submissions.length}/${room.players.length}`);
     
-    if (room.submissions.length === room.players.length) {
-      io.to(roomId).emit("start-voting", room.submissions);
-      // Start voting countdown timer (30 seconds for voting)
-      if (votingTimers[roomId]) {
-        clearTimeout(votingTimers[roomId]);
+    // Check if all active players have submitted
+    const activePlayers = room.players.filter(p => !p.afk);
+    const activeSubmissions = room.submissions.filter(sub => {
+      const submitter = room.players.find(p => p.id === sub.playerId);
+      return submitter && !submitter.afk;
+    });
+    
+    if (activeSubmissions.length === activePlayers.length || room.submissions.length === room.players.length) {
+      // Clear photo submission timer if it exists
+      if (photoSubmissionTimers[roomId]) {
+        clearTimeout(photoSubmissionTimers[roomId]);
+        delete photoSubmissionTimers[roomId];
       }
-      votingTimers[roomId] = setTimeout(() => {
-        processVotingResults(roomId);
-      }, 30 * 1000); // Fixed 30 seconds for voting
+      
+      startVotingPhase(roomId);
     }
   });
 
   socket.on("vote", ({ roomId, photoIndex, vote }) => {
-    const sub = rooms[roomId].submissions[photoIndex];
+    const room = rooms[roomId];
+    if (!room) return;
+    
+    const sub = room.submissions[photoIndex];
+    if (!sub) return;
+    
+    // Update player activity
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      player.lastActivity = Date.now();
+      player.afk = false;
+    }
+    
     // Prevent voting on own submission
     if (sub.playerId === socket.id) {
       console.log("Player tried to vote on their own submission, ignoring.");
       return;
     }
+    
     if (!sub.votes.find(v => v.voter === socket.id)) {
       sub.votes.push({ voter: socket.id, vote });
       
-      // Check if all players have voted (excluding the photo owner)
-      const votersCount = rooms[roomId].players.length - 1;
-      const totalVotes = rooms[roomId].submissions.reduce((total, sub) => total + sub.votes.length, 0);
+      // Check if all active players have voted
+      const activePlayers = room.players.filter(p => !p.afk);
+      const activeVoters = activePlayers.filter(p => 
+        room.submissions.some(s => s.playerId !== p.id) // Players who can vote (not their own submission)
+      );
       
-      if (totalVotes >= votersCount * rooms[roomId].submissions.length) {
+      const totalVotesNeeded = activeVoters.length * room.submissions.length;
+      const totalVotesCast = room.submissions.reduce((total, sub) => {
+        return total + sub.votes.filter(v => {
+          const voter = room.players.find(p => p.id === v.voter);
+          return voter && !voter.afk;
+        }).length;
+      }, 0);
+      
+      if (totalVotesCast >= totalVotesNeeded) {
         // All votes are in, process results immediately
         if (votingTimers[roomId]) {
           clearTimeout(votingTimers[roomId]);
@@ -198,6 +258,9 @@ io.on("connection", (socket) => {
     }
     
     room.submissions = [];
+    
+    // Start photo submission timer for this round
+    startPhotoSubmissionTimer(roomId);
     
     // Initialize used words if not exists
     if (!room.usedWords) room.usedWords = [];
@@ -352,14 +415,40 @@ io.on("connection", (socket) => {
 
   socket.on("disconnecting", () => {
     for (const roomId in rooms) {
-      rooms[roomId].players = rooms[roomId].players.filter(p => p.id !== socket.id);
-      delete rooms[roomId].scores[socket.id];
+      const room = rooms[roomId];
+      const disconnectedPlayer = room.players.find(p => p.id === socket.id);
+      
+      if (disconnectedPlayer) {
+        // Mark as AFK instead of removing immediately
+        disconnectedPlayer.afk = true;
+        disconnectedPlayer.lastActivity = Date.now() - (6 * 60 * 1000);
+        console.log(`Player ${disconnectedPlayer.name} disconnected, marked as AFK`);
+        
+        // Remove after 10 minutes if not reconnected
+        setTimeout(() => {
+          const currentPlayer = room.players.find(p => p.sessionId === disconnectedPlayer.sessionId);
+          if (currentPlayer && currentPlayer.afk && (Date.now() - currentPlayer.lastActivity) > 10 * 60 * 1000) {
+            room.players = room.players.filter(p => p.sessionId !== disconnectedPlayer.sessionId);
+            delete room.scores[currentPlayer.id];
+            io.to(roomId).emit("room-update", room.players);
+            console.log(`Player ${disconnectedPlayer.name} removed after 10 minutes of inactivity`);
+          }
+        }, 10 * 60 * 1000);
+      }
       
       // Clean up voting timer if room is empty
-      if (rooms[roomId].players.length === 0) {
+      if (room.players.length === 0) {
         if (votingTimers[roomId]) {
           clearTimeout(votingTimers[roomId]);
           delete votingTimers[roomId];
+        }
+        if (photoSubmissionTimers[roomId]) {
+          clearTimeout(photoSubmissionTimers[roomId]);
+          delete photoSubmissionTimers[roomId];
+        }
+        if (afkCheckTimers[roomId]) {
+          clearTimeout(afkCheckTimers[roomId]);
+          delete afkCheckTimers[roomId];
         }
       }
     }
@@ -394,17 +483,22 @@ io.on("connection", (socket) => {
     const player = room.players.find(p => p.id === socketId);
     if (player) {
       player.afk = true;
+      player.lastActivity = Date.now() - (6 * 60 * 1000); // Mark as 6 minutes ago
       io.to(roomId).emit("room-update", room.players);
       console.log(`Player ${player.name} is now AFK`);
+      
+      // Check if we need to advance the game
+      checkGameProgression(roomId);
     }
   });
 
   socket.on("user-activity", ({ roomId, socketId }) => {
     const room = rooms[roomId];
     if (!room) return;
-    const player = room.players.find(p => p.id === socketId);
+    const player = room.players.find(p => p.id === socketId || p.id === socket.id);
     if (player) {
       player.afk = false;
+      player.lastActivity = Date.now();
       io.to(roomId).emit("room-update", room.players);
       console.log(`Player ${player.name} is back from AFK`);
     }
@@ -431,3 +525,99 @@ app.get("*", (req, res) => {
 // Use PORT from environment variable (for Render) or default to 3001
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Helper functions for enhanced AFK handling
+function startAFKMonitoring(roomId) {
+  if (afkCheckTimers[roomId]) {
+    clearTimeout(afkCheckTimers[roomId]);
+  }
+  
+  const checkAFK = () => {
+    const room = rooms[roomId];
+    if (!room) return;
+    
+    const now = Date.now();
+    let playersUpdated = false;
+    
+    room.players.forEach(player => {
+      const timeSinceActivity = now - (player.lastActivity || now);
+      if (timeSinceActivity > 3 * 60 * 1000 && !player.afk) { // 3 minutes for AFK
+        player.afk = true;
+        playersUpdated = true;
+        console.log(`Player ${player.name} marked as AFK due to inactivity`);
+      }
+    });
+    
+    if (playersUpdated) {
+      io.to(roomId).emit("room-update", room.players);
+      checkGameProgression(roomId);
+    }
+    
+    // Schedule next check
+    afkCheckTimers[roomId] = setTimeout(checkAFK, 30000); // Check every 30 seconds
+  };
+  
+  afkCheckTimers[roomId] = setTimeout(checkAFK, 30000);
+}
+
+function checkGameProgression(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  
+  // If we're in playing phase and waiting for photo submissions
+  if (room.round > 0 && room.submissions.length < room.players.length) {
+    const activePlayers = room.players.filter(p => !p.afk);
+    const activeSubmissions = room.submissions.filter(sub => {
+      const submitter = room.players.find(p => p.id === sub.playerId);
+      return submitter && !submitter.afk;
+    });
+    
+    if (activeSubmissions.length === activePlayers.length && activePlayers.length > 0) {
+      // All active players have submitted, start voting
+      if (photoSubmissionTimers[roomId]) {
+        clearTimeout(photoSubmissionTimers[roomId]);
+        delete photoSubmissionTimers[roomId];
+      }
+      startVotingPhase(roomId);
+    }
+  }
+}
+
+function startVotingPhase(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  
+  io.to(roomId).emit("start-voting", room.submissions);
+  
+  // Start voting countdown timer (30 seconds for voting)
+  if (votingTimers[roomId]) {
+    clearTimeout(votingTimers[roomId]);
+  }
+  votingTimers[roomId] = setTimeout(() => {
+    processVotingResults(roomId);
+  }, 30 * 1000);
+}
+
+function startPhotoSubmissionTimer(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  
+  // Give players 90 seconds to submit photos, then proceed with active players
+  photoSubmissionTimers[roomId] = setTimeout(() => {
+    console.log(`Photo submission time limit reached for room ${roomId}`);
+    const activePlayers = room.players.filter(p => !p.afk);
+    const activeSubmissions = room.submissions.filter(sub => {
+      const submitter = room.players.find(p => p.id === sub.playerId);
+      return submitter && !submitter.afk;
+    });
+    
+    if (activeSubmissions.length > 0) {
+      startVotingPhase(roomId);
+    } else {
+      // No submissions, skip to next round
+      setTimeout(() => {
+        nextRound(roomId);
+      }, 3000);
+    }
+  }, 90 * 1000); // 90 seconds
+}

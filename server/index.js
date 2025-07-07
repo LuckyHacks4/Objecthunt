@@ -18,7 +18,7 @@ let afkCheckTimers = {};
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("create-room", ({ roomId, username, roundTime = 60, maxPlayers = 6, sessionId }) => {
+  socket.on("create-room", ({ roomId, username, roundTime = 60, maxPlayers = 6, numberOfRounds = 3, sessionId }) => {
     console.log("Create room request:", { roomId, username, socketId: socket.id, roundTime, maxPlayers, sessionId });
     
     // Check for session restoration first
@@ -76,6 +76,7 @@ io.on("connection", (socket) => {
         gameEnded: false,
         roundTime: Number(roundTime),
         maxPlayers: Number(maxPlayers),
+        numberOfRounds: Number(numberOfRounds),
         avatars: {},
         customWords: [],
         usedWords: []
@@ -126,6 +127,36 @@ io.on("connection", (socket) => {
     const player = rooms[roomId]?.players.find(p => p.id === socket.id);
     if (player) player.ready = true;
     io.to(roomId).emit("room-update", rooms[roomId].players);
+  });
+
+  socket.on("leave-room", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (room) {
+      // Remove player from room
+      room.players = room.players.filter(p => p.id !== socket.id);
+      
+      // Remove player's score
+      if (room.scores[socket.id]) {
+        delete room.scores[socket.id];
+      }
+      
+      // Remove player's avatar
+      if (room.avatars[socket.id]) {
+        delete room.avatars[socket.id];
+      }
+      
+      // If room is empty, delete it
+      if (room.players.length === 0) {
+        delete rooms[roomId];
+        console.log("Room deleted:", roomId);
+      } else {
+        // Update remaining players
+        io.to(roomId).emit("room-update", room.players);
+      }
+    }
+    
+    socket.leave(roomId);
+    console.log("Player left room:", socket.id, roomId);
   });
 
   socket.on("submit-photo", ({ roomId, photoData, timestamp }) => {
@@ -251,7 +282,7 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     room.round += 1;
-    if (room.round > 5) {
+    if (room.round > room.numberOfRounds) {
       room.gameEnded = true;
       io.to(roomId).emit("game-ended", room.scores);
       return;

@@ -55,13 +55,17 @@ const App = () => {
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
   
+  // New state variables for room management
+  const [currentScreen, setCurrentScreen] = useState("main"); // main, create-room, join-room, lobby
+  const [numberOfRounds, setNumberOfRounds] = useState(3);
+  
   // AFK Detection States
   const [isAFK, setIsAFK] = useState(false);
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [afkTimeout, setAfkTimeout] = useState(null);
   const [pingInterval, setPingInterval] = useState(null);
   const [sessionId, setSessionId] = useState(null);
-
+  
   // --- FUNNY FACTS ---
   const funnyFacts = [
     "Did you know? The average person spends 6 months of their life waiting for red lights to turn green!",
@@ -714,18 +718,36 @@ const App = () => {
     
     // Save session to localStorage
     localStorage.setItem('objectHuntSession', newSessionId);
-    localStorage.setItem('objectHuntRoomId', roomId);
+    localStorage.setItem('objectHuntRoomId', finalRoomId);
     localStorage.setItem('objectHuntUsername', username);
     
-    console.log("Creating room:", { roomId, username, socketId: mySocketId, roundTime, maxPlayers, sessionId: newSessionId });
-    socket.emit("create-room", { roomId, username, roundTime, maxPlayers, sessionId: newSessionId });
+    console.log("Creating room:", { roomId: finalRoomId, username, socketId: mySocketId, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
+    socket.emit("create-room", { roomId: finalRoomId, username, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
     setJoinedRoom(true);
+    setCurrentScreen("lobby");
   };
 
   const joinRoom = () => {
     if (!username.trim() || !roomId.trim()) return;
-    socket.emit("create-room", { roomId, username });
-    setGameState("lobby");
+    
+    // Initialize audio context on user interaction
+    if (window.audioContext && window.audioContext.state === 'suspended') {
+      window.audioContext.resume();
+    }
+    
+    // Generate session ID if not exists
+    const newSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(newSessionId);
+    
+    // Save session to localStorage
+    localStorage.setItem('objectHuntSession', newSessionId);
+    localStorage.setItem('objectHuntRoomId', roomId);
+    localStorage.setItem('objectHuntUsername', username);
+    
+    console.log("Joining room:", { roomId, username, socketId: mySocketId, sessionId: newSessionId });
+    socket.emit("create-room", { roomId, username, sessionId: newSessionId });
+    setJoinedRoom(true);
+    setCurrentScreen("lobby");
   };
 
   const startGame = () => {
@@ -739,7 +761,24 @@ const App = () => {
   };
 
   const exitLobby = () => {
-    window.location.reload();
+    socket.emit("leave-room", { roomId });
+    setJoinedRoom(false);
+    setCurrentScreen("main");
+    setPlayers([]);
+    setGameState("lobby");
+    setRound(0);
+    setScores({});
+    setSubmissions([]);
+    setMyVotes(new Set());
+    setVotingProgress({});
+    setShowRoundResults(false);
+    setHasSubmittedPhoto(false);
+    setPhotoSubmitted(false);
+    setPlayerAvatars({});
+    setShowCelebration(false);
+    setWinnerName("");
+    setCustomWords([]);
+    setNewCustomWord("");
   };
 
   const startNewGame = () => {
@@ -967,16 +1006,7 @@ const App = () => {
   );
 
   // --- LOBBY ---
-  const renderLobby = () => {
-    // Determine if current user is admin (host)
-    const isAdmin = players.length > 0 && players[0].id === mySocketId;
-    const shareUrl = `${window.location.origin}?room=${roomId}`;
-    
-    const copyShareLink = () => {
-      navigator.clipboard.writeText(shareUrl);
-      alert('Share link copied to clipboard!');
-    };
-
+  const renderMainScreen = () => {
     return (
       <motion.div 
         initial={{ opacity: 0 }}
@@ -996,190 +1026,379 @@ const App = () => {
           >
             🎮 How to Play Guide 🎮
           </motion.button>
-          {!joinedRoom ? (
-            <div className="space-y-4">
-              <label htmlFor="username" className="sr-only">Your username</label>
-              <input
-                id="username"
-                type="text"
-                placeholder="Your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
-                aria-label="Enter your username"
-              />
-              <label htmlFor="roomId" className="sr-only">Room ID (Optional)</label>
-              <div className="space-y-2">
-                <input
-                  id="roomId"
-                  type="text"
-                  placeholder="Room ID (leave empty to auto-generate)"
-                  value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
-                  className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
-                  aria-label="Enter room ID (optional)"
-                />
-                <p className="text-xs text-primary-dark">
-                  💡 Leave empty to auto-generate a unique room code
-                </p>
-              </div>
-              <div className="flex space-x-2">
-                <div className="flex-1">
-                  <label className="block text-primary-dark text-sm font-semibold mb-1">Per-round time (seconds)</label>
-                  <select
-                    value={roundTime}
-                    onChange={e => setRoundTime(Number(e.target.value))}
-                    className="w-full p-2 border-2 border-primary-light rounded-lg bg-accent/40 text-secondary"
-                  >
-                    <option value={30}>30</option>
-                    <option value={45}>45</option>
-                    <option value={60}>60</option>
-                    <option value={90}>90</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-primary-dark text-sm font-semibold mb-1">Max players</label>
-                  <input
-                    type="number"
-                    min={2}
-                    max={12}
-                    value={maxPlayers}
-                    onChange={e => setMaxPlayers(Number(e.target.value))}
-                    className="w-full p-2 border-2 border-primary-light rounded-lg bg-accent/40 text-secondary"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={createRoom}
-                className={`w-full ${orangeButton}`}
+          
+          <div className="space-y-4">
+            <label htmlFor="username" className="sr-only">Your username</label>
+            <input
+              id="username"
+              type="text"
+              placeholder="Your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+              aria-label="Enter your username"
+            />
+            
+            <div className="flex space-x-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentScreen("create-room")}
+                className={`flex-1 ${orangeButton}`}
               >
-                Create/Join Room
-              </button>
+                🏠 Create Room
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentScreen("join-room")}
+                className={`flex-1 ${orangeButtonOutline}`}
+              >
+                🚪 Join Room
+              </motion.button>
             </div>
-          ) : (
-            <div>
-              <h3 className="text-lg font-semibold mb-3 text-primary-dark">Players in Room:</h3>
-              <div className="space-y-2 mb-4">
-                {players.map((player, index) => (
-                  <div key={player.id} className="flex items-center justify-between p-2 bg-accent rounded-xl border border-primary-light">
-                    <div className="flex items-center space-x-3">
-                      {playerAvatars[player.id] ? (
-                        <img 
-                          src={playerAvatars[player.id]} 
-                          alt="Avatar" 
-                          className="w-8 h-8 rounded-full object-cover border-2 border-primary"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">
-                          👤
-                        </div>
-                      )}
-                      <span className="font-bold text-secondary">
-                        {player.name}
-                        {player.afk && <span className="text-yellow-600 ml-1">😴</span>}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded text-sm ${player.ready ? 'bg-primary text-white' : 'bg-gray-300 text-secondary'}`}>
-                        {player.ready ? 'Ready' : 'Not Ready'}
-                      </span>
-                      {player.id === mySocketId && !player.ready && (
-                        <button onClick={handleReady} className={`${orangeButtonOutline} px-3 py-1 text-sm`}>Ready</button>
-                      )}
-                      {isAdmin && player.id !== mySocketId && (
-                        <button 
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to kick ${player.name}?`)) {
-                              handleKick(player.id);
-                            }
-                          }} 
-                          className="text-xs bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-1 rounded transition-colors"
-                        >
-                          🚫 Kick
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {/* Avatar button for current user */}
-              {!playerAvatars[mySocketId] && (
-                <button
-                  onClick={startAvatarCamera}
-                  className={`w-full mb-4 ${orangeButtonOutline}`}
-                >
-                  📸 Take Avatar Photo
-                </button>
-              )}
-              
-              {/* Custom Words Section */}
-              <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
-                <h4 className="text-sm font-semibold text-primary-dark mb-2">Add Custom Words:</h4>
-                <div className="flex space-x-2 mb-2">
-                  <input
-                    type="text"
-                    placeholder="Enter a word..."
-                    value={newCustomWord}
-                    onChange={(e) => setNewCustomWord(e.target.value)}
-                    className="flex-1 p-2 text-sm border border-primary-light rounded bg-white"
-                  />
-                  <button
-                    onClick={() => {
-                      if (newCustomWord.trim()) {
-                        setCustomWords([...customWords, newCustomWord.trim()]);
-                        setNewCustomWord("");
-                      }
-                    }}
-                    className={`px-3 py-2 ${orangeButton} text-sm`}
-                  >
-                    Add
-                  </button>
-                </div>
-                {customWords.length > 0 && (
-                  <div className="text-xs text-primary-dark">
-                    Custom words: {customWords.join(", ")}
-                  </div>
-                )}
-              </div>
-              
-              {players.length >= 2 && players.every(p => p.ready) && isAdmin && (
-                <button
-                  onClick={startGame}
-                  className={`w-full mt-4 ${orangeButton}`}
-                >
-                  Start Game
-                </button>
-              )}
-              
-              {/* Share section */}
-              <div className="mt-4 p-3 bg-accent rounded-lg">
-                <div className="text-center text-primary-dark text-sm mb-2">Share with friends:</div>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={shareUrl}
-                    readOnly
-                    className="flex-1 p-2 text-xs border border-primary-light rounded bg-white"
-                  />
-                  <button
-                    onClick={copyShareLink}
-                    className={`px-3 py-2 ${orangeButton} text-sm`}
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
-              
-              <div className="mt-2 text-xs text-primary-dark text-center">
-                Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       </motion.div>
     );
   };
+
+  const renderCreateRoomScreen = () => {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`min-h-screen flex flex-col items-center justify-center p-4`}
+      >
+        {renderHeader()}
+        <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
+          <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Create New Room</h1>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="roomId" className="block text-primary-dark text-sm font-semibold">Room ID (Optional)</label>
+              <input
+                id="roomId"
+                type="text"
+                placeholder="Leave empty to auto-generate"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+              />
+              <p className="text-xs text-primary-dark">
+                💡 Leave empty to auto-generate a unique room code
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-primary-dark text-sm font-semibold mb-1">Per-round time (seconds)</label>
+                <select
+                  value={roundTime}
+                  onChange={e => setRoundTime(Number(e.target.value))}
+                  className="w-full p-2 border-2 border-primary-light rounded-lg bg-accent/40 text-secondary"
+                >
+                  <option value={30}>30</option>
+                  <option value={45}>45</option>
+                  <option value={60}>60</option>
+                  <option value={90}>90</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-primary-dark text-sm font-semibold mb-1">Number of rounds</label>
+                <select
+                  value={numberOfRounds}
+                  onChange={e => setNumberOfRounds(Number(e.target.value))}
+                  className="w-full p-2 border-2 border-primary-light rounded-lg bg-accent/40 text-secondary"
+                >
+                  <option value={1}>1</option>
+                  <option value={2}>2</option>
+                  <option value={3}>3</option>
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-primary-dark text-sm font-semibold mb-1">Max players</label>
+              <input
+                type="number"
+                min={2}
+                max={12}
+                value={maxPlayers}
+                onChange={e => setMaxPlayers(Number(e.target.value))}
+                className="w-full p-2 border-2 border-primary-light rounded-lg bg-accent/40 text-secondary"
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentScreen("main")}
+                className={`flex-1 ${orangeButtonOutline}`}
+              >
+                ← Back
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={createRoom}
+                className={`flex-1 ${orangeButton}`}
+              >
+                🏠 Create Room
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderJoinRoomScreen = () => {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`min-h-screen flex flex-col items-center justify-center p-4`}
+      >
+        {renderHeader()}
+        <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
+          <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Join Existing Room</h1>
+          
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="joinRoomId" className="block text-primary-dark text-sm font-semibold mb-1">Room ID</label>
+              <input
+                id="joinRoomId"
+                type="text"
+                placeholder="Enter room code"
+                value={roomId}
+                onChange={(e) => setRoomId(e.target.value)}
+                className="w-full p-3 border-2 border-primary-light rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent bg-accent/40 text-secondary"
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setCurrentScreen("main")}
+                className={`flex-1 ${orangeButtonOutline}`}
+              >
+                ← Back
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={joinRoom}
+                className={`flex-1 ${orangeButton}`}
+              >
+                🚪 Join Room
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+  const renderLobby = () => {
+    // Determine if current user is admin (host)
+    const isAdmin = players.length > 0 && players[0].id === mySocketId;
+    const shareUrl = `${window.location.origin}?room=${roomId}`;
+    
+    const copyShareLink = () => {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Share link copied to clipboard!');
+    };
+
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`min-h-screen flex flex-col items-center justify-center p-4`}
+      >
+        {renderHeader()}
+        <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
+          <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
+          
+          <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
+            <div className="text-center text-primary-dark text-sm mb-2">Room Code: <span className="font-bold text-lg">{roomId}</span></div>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={shareUrl}
+                readOnly
+                className="flex-1 p-2 text-xs border border-primary-light rounded bg-white"
+              />
+              <button
+                onClick={copyShareLink}
+                className={`px-3 py-2 ${orangeButton} text-sm`}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold mb-3 text-primary-dark">Players in Room:</h3>
+            <div className="space-y-2 mb-4">
+              {players.map((player, index) => (
+                <div key={player.id} className="flex items-center justify-between p-2 bg-accent rounded-xl border border-primary-light">
+                  <div className="flex items-center space-x-3">
+                    {playerAvatars[player.id] ? (
+                      <img 
+                        src={playerAvatars[player.id]} 
+                        alt="Avatar" 
+                        className="w-8 h-8 rounded-full object-cover border-2 border-primary"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+                        👤
+                      </div>
+                    )}
+                    <span className="font-bold text-secondary">
+                      {player.name}
+                      {player.afk && <span className="text-yellow-600 ml-1">😴</span>}
+                      {index === 0 && <span className="text-blue-600 ml-1">👑</span>}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-2 py-1 rounded text-sm ${player.ready ? 'bg-primary text-white' : 'bg-gray-300 text-secondary'}`}>
+                      {player.ready ? 'Ready' : 'Not Ready'}
+                    </span>
+                    {player.id === mySocketId && !player.ready && (
+                      <button onClick={handleReady} className={`${orangeButtonOutline} px-3 py-1 text-sm`}>Ready</button>
+                    )}
+                    {isAdmin && player.id !== mySocketId && (
+                      <button 
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to kick ${player.name}?`)) {
+                            handleKick(player.id);
+                          }
+                        }} 
+                        className="text-xs bg-red-500 hover:bg-red-600 text-white font-bold px-2 py-1 rounded transition-colors"
+                      >
+                        🚫 Kick
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Game Settings (Admin Only) */}
+          {isAdmin && (
+            <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
+              <h4 className="text-sm font-semibold text-primary-dark mb-2">Game Settings:</h4>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div>
+                  <label className="block text-primary-dark text-xs font-semibold">Per-round time</label>
+                  <select
+                    value={roundTime}
+                    onChange={e => setRoundTime(Number(e.target.value))}
+                    className="w-full p-1 text-xs border border-primary-light rounded bg-white"
+                  >
+                    <option value={30}>30s</option>
+                    <option value={45}>45s</option>
+                    <option value={60}>60s</option>
+                    <option value={90}>90s</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-primary-dark text-xs font-semibold">Number of rounds</label>
+                  <select
+                    value={numberOfRounds}
+                    onChange={e => setNumberOfRounds(Number(e.target.value))}
+                    className="w-full p-1 text-xs border border-primary-light rounded bg-white"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                  </select>
+                </div>
+              </div>
+              <div className="text-xs text-primary-dark">
+                Current: <b>{roundTime}s</b> per round, <b>{numberOfRounds}</b> rounds
+              </div>
+            </div>
+          )}
+          
+          {/* Avatar button for current user */}
+          {!playerAvatars[mySocketId] && (
+            <button
+              onClick={startAvatarCamera}
+              className={`w-full mb-4 ${orangeButtonOutline}`}
+            >
+              📸 Take Avatar Photo
+            </button>
+          )}
+          
+          {/* Custom Words Section */}
+          <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
+            <h4 className="text-sm font-semibold text-primary-dark mb-2">Add Custom Words:</h4>
+            <div className="flex space-x-2 mb-2">
+              <input
+                type="text"
+                placeholder="Enter a word..."
+                value={newCustomWord}
+                onChange={(e) => setNewCustomWord(e.target.value)}
+                className="flex-1 p-2 text-sm border border-primary-light rounded bg-white"
+              />
+              <button
+                onClick={() => {
+                  if (newCustomWord.trim()) {
+                    setCustomWords([...customWords, newCustomWord.trim()]);
+                    setNewCustomWord("");
+                  }
+                }}
+                className={`px-3 py-2 ${orangeButton} text-sm`}
+              >
+                Add
+              </button>
+            </div>
+            {customWords.length > 0 && (
+              <div className="text-xs text-primary-dark">
+                Custom words: {customWords.join(", ")}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex space-x-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={exitLobby}
+              className={`flex-1 ${orangeButtonOutline}`}
+            >
+              🚪 Leave Room
+            </motion.button>
+            {players.length >= 2 && players.every(p => p.ready) && isAdmin && (
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={startGame}
+                className={`flex-1 ${orangeButton}`}
+              >
+                🎮 Start Game
+              </motion.button>
+            )}
+          </div>
+          
+          <div className="mt-2 text-xs text-primary-dark text-center">
+            Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b> | Rounds: <b>{numberOfRounds}</b>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
+
 
   // --- THEME CLASSES ---
   const orangeBg = ""; // No gradient, just use the background image
@@ -1197,7 +1416,7 @@ const App = () => {
       <div className="max-w-4xl mx-auto w-full">
         <div className={`${orangeOverlay} rounded-lg p-6 mb-4`}>
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-primary-dark">Round {round}/5</h2>
+            <h2 className="text-2xl font-bold text-primary-dark">Round {round}/{numberOfRounds}</h2>
             <div className="text-xl font-semibold text-primary-dark">Time: {timeLeft}s</div>
           </div>
           <div className="text-center mb-6">
@@ -1781,7 +2000,10 @@ const App = () => {
                     ✅ Photo submitted successfully!
                   </motion.div>
                 )}
-                {gameState === "lobby" && renderLobby()}
+                {currentScreen === "main" && renderMainScreen()}
+                {currentScreen === "create-room" && renderCreateRoomScreen()}
+                {currentScreen === "join-room" && renderJoinRoomScreen()}
+                {currentScreen === "lobby" && renderLobby()}
                 {gameState === "playing" && renderGame()}
                 {gameState === "voting" && renderVoting()}
                 {gameState === "ended" && renderGameEnd()}

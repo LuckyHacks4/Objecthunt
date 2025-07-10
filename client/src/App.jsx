@@ -1026,15 +1026,7 @@ const App = () => {
         {renderHeader()}
         {/* Main Content Container with Side Ads */}
         <div className="flex items-center justify-center w-full max-w-6xl mx-auto">
-          {/* Left Side Ad */}
-          <div className="hidden lg:block w-64 mx-4">
-            <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-2"></div>
-              <div className="text-center text-gray-500 text-xs mt-2">
-                Advertisement
-              </div>
-            </div>
-          </div>
+
           {/* Main Content */}
           <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
             <h1 className="text-3xl font-bold text-center mb-8 text-primary-dark drop-shadow">Welcome to Object Hunt - Free Multiplayer Photo Scavenger Hunt Game</h1>
@@ -1047,15 +1039,7 @@ const App = () => {
             >
               🎮 How to Play Guide 🎮
             </motion.button>
-            {/* New Ad Format */}
-            <div className="w-full mb-6 flex justify-center">
-              <div className="bg-white rounded-lg p-2 shadow-md">
-                <div id="container-be0dca7a67d4690a3a9f2f04500b5428-1"></div>
-                <div className="text-center text-gray-500 text-xs mt-2">
-                  Advertisement
-                </div>
-              </div>
-            </div>
+
             {/* Clear Session Button - Only show if there's a saved session */}
             {localStorage.getItem('objectHuntSession') && (
               <motion.button
@@ -1142,15 +1126,7 @@ const App = () => {
               </div>
             </div>
           </div>
-          {/* Right Side Ad */}
-          <div className="hidden lg:block w-64 mx-4">
-            <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-3"></div>
-              <div className="text-center text-gray-500 text-xs mt-2">
-                Advertisement
-              </div>
-            </div>
-          </div>
+
         </div>
       </motion.div>
     );
@@ -1333,15 +1309,7 @@ const App = () => {
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
           <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
           
-          {/* New Ad Format */}
-          <div className="w-full mb-4 flex justify-center">
-            <div className="bg-white rounded-lg p-2 shadow-md">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-4"></div>
-              <div className="text-center text-gray-500 text-xs mt-2">
-                Advertisement
-              </div>
-            </div>
-          </div>
+
           
           <div className="mb-4 p-3 bg-accent rounded-lg border border-primary-light">
             <div className="text-center text-primary-dark text-sm mb-2">Room Code: <span className="font-bold text-lg">{roomId}</span></div>
@@ -1741,15 +1709,7 @@ const App = () => {
       >
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
           
-          {/* New Ad Format */}
-          <div className="w-full mb-6 flex justify-center">
-            <div className="bg-white rounded-lg p-2 shadow-md">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-5"></div>
-              <div className="text-center text-gray-500 text-xs mt-2">
-                Advertisement
-              </div>
-            </div>
-          </div>
+
           
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
           <div className="space-y-4">

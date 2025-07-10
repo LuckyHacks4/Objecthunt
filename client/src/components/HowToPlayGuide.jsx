@@ -153,20 +153,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
               </p>
             </motion.div>
 
-            {/* New Ad Format */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-200"
-            >
-              <div className="text-center">
-                <div id="container-be0dca7a67d4690a3a9f2f04500b5428-6"></div>
-                <div className="text-center text-gray-500 text-xs mt-2">
-                  Advertisement
-                </div>
-              </div>
-            </motion.div>
+
 
             {/* Progress Dots */}
             <div className="flex justify-center space-x-2 mb-6">

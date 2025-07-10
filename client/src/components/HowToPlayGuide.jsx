@@ -161,7 +161,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
               className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-200"
             >
               <div className="text-center">
-                <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+                <div id="container-be0dca7a67d4690a3a9f2f04500b5428-6"></div>
                 <div className="text-center text-gray-500 text-xs mt-2">
                   Advertisement
                 </div>

@@ -1029,7 +1029,7 @@ const App = () => {
           {/* Left Side Ad */}
           <div className="hidden lg:block w-64 mx-4">
             <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-2"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1050,7 +1050,7 @@ const App = () => {
             {/* New Ad Format */}
             <div className="w-full mb-6 flex justify-center">
               <div className="bg-white rounded-lg p-2 shadow-md">
-                <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+                <div id="container-be0dca7a67d4690a3a9f2f04500b5428-1"></div>
                 <div className="text-center text-gray-500 text-xs mt-2">
                   Advertisement
                 </div>
@@ -1120,8 +1120,18 @@ const App = () => {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => {
                     // Trigger popunder ad
-                    if (window.popunder) {
-                      window.popunder();
+                    try {
+                      // Create a new window to trigger popunder
+                      const popunderWindow = window.open('about:blank', '_blank', 'width=1,height=1,left=-1000,top=-1000');
+                      if (popunderWindow) {
+                        popunderWindow.close();
+                      }
+                      // Also try to trigger any popunder script
+                      if (window.popunder) {
+                        window.popunder();
+                      }
+                    } catch (error) {
+                      console.log('Popunder trigger error:', error);
                     }
                     setCurrentScreen("join-room");
                   }}
@@ -1135,7 +1145,7 @@ const App = () => {
           {/* Right Side Ad */}
           <div className="hidden lg:block w-64 mx-4">
             <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-3"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1277,8 +1287,18 @@ const App = () => {
                 whileTap={{ scale: 0.95 }}
                 onClick={() => {
                   // Trigger popunder ad
-                  if (window.popunder) {
-                    window.popunder();
+                  try {
+                    // Create a new window to trigger popunder
+                    const popunderWindow = window.open('about:blank', '_blank', 'width=1,height=1,left=-1000,top=-1000');
+                    if (popunderWindow) {
+                      popunderWindow.close();
+                    }
+                    // Also try to trigger any popunder script
+                    if (window.popunder) {
+                      window.popunder();
+                    }
+                  } catch (error) {
+                    console.log('Popunder trigger error:', error);
                   }
                   joinRoom();
                 }}
@@ -1316,7 +1336,7 @@ const App = () => {
           {/* New Ad Format */}
           <div className="w-full mb-4 flex justify-center">
             <div className="bg-white rounded-lg p-2 shadow-md">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-4"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1724,7 +1744,7 @@ const App = () => {
           {/* New Ad Format */}
           <div className="w-full mb-6 flex justify-center">
             <div className="bg-white rounded-lg p-2 shadow-md">
-              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428-5"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>

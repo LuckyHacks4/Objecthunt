@@ -61,6 +61,37 @@
     
     <!-- New Ad Script -->
     <script async="async" data-cfasync="false" src="//pl27134133.profitableratecpm.com/be0dca7a67d4690a3a9f2f04500b5428/invoke.js"></script>
+    <script>
+      // Function to create ad containers dynamically
+      function createAdContainer(containerId) {
+        const container = document.getElementById(containerId);
+        if (container) {
+          // Clear existing content
+          container.innerHTML = '';
+          // Add the original container ID for the ad script
+          const adDiv = document.createElement('div');
+          adDiv.id = 'container-be0dca7a67d4690a3a9f2f04500b5428';
+          container.appendChild(adDiv);
+        }
+      }
+      
+      // Initialize ads when DOM is loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        // Create ad containers for all ad placements
+        const adContainers = [
+          'container-be0dca7a67d4690a3a9f2f04500b5428-1',
+          'container-be0dca7a67d4690a3a9f2f04500b5428-2', 
+          'container-be0dca7a67d4690a3a9f2f04500b5428-3',
+          'container-be0dca7a67d4690a3a9f2f04500b5428-4',
+          'container-be0dca7a67d4690a3a9f2f04500b5428-5',
+          'container-be0dca7a67d4690a3a9f2f04500b5428-6'
+        ];
+        
+        adContainers.forEach(containerId => {
+          createAdContainer(containerId);
+        });
+      });
+    </script>
     
     <!-- Structured Data / JSON-LD -->
     <script type="application/ld+json">
@@ -131,8 +162,8 @@
       }
     }
     </script>
-    <script type="module" crossorigin src="/assets/index-9800d7bf.js"></script>
-    <link rel="stylesheet" href="/assets/index-1cb7e3df.css">
+    <script type="module" crossorigin src="/assets/index-620171a1.js"></script>
+    <link rel="stylesheet" href="/assets/index-47ab8bad.css">
   </head>
   <body>
     <div id="root"></div>

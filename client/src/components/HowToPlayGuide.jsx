@@ -91,22 +91,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
     }
   };
 
-  // Initialize AdSense ad when component mounts - temporarily disabled
-  // useEffect(() => {
-  //   if (isOpen && window.adsbygoogle) {
-  //     const timer = setTimeout(() => {
-  //       try {
-  //         const adElement = document.querySelector('.adsbygoogle:not([data-ad-status])');
-  //         if (adElement) {
-  //           (window.adsbygoogle = window.adsbygoogle || []).push({});
-  //         }
-  //       } catch (error) {
-  //         console.log('Error initializing HowToPlay ad:', error.message);
-  //       }
-  //     }, 2000);
-  //     return () => clearTimeout(timer);
-  //   }
-  // }, [isOpen]);
+  // Removed AdSense initialization - using new ad format
 
   return (
     <AnimatePresence>
@@ -168,7 +153,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
               </p>
             </motion.div>
 
-            {/* Google AdSense In-Article Ad */}
+            {/* New Ad Format */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -176,12 +161,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
               className="my-6 p-4 bg-gray-50 rounded-xl border border-gray-200"
             >
               <div className="text-center">
-                <ins className="adsbygoogle"
-                     style={{display: 'block', textAlign: 'center'}}
-                     data-ad-layout="in-article"
-                     data-ad-format="fluid"
-                     data-ad-client="ca-pub-1805547376392100"
-                     data-ad-slot="2237097125"></ins>
+                <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
                 <div className="text-center text-gray-500 text-xs mt-2">
                   Advertisement
                 </div>

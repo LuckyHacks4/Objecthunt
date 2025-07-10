@@ -112,71 +112,12 @@ const App = () => {
     voteSound.current.volume = 0.5;
     endSound.current.volume = 0.5;
     
-    // Initialize Google AdSense
-    if (window.adsbygoogle) {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    }
+    // Removed Google AdSense initialization - using new ad format
   }, []);
 
-  // AdSense initialization with better error handling
-  useEffect(() => {
-    const initializeAds = () => {
-      // Check if AdSense is loaded
-      if (typeof window.adsbygoogle === 'undefined') {
-        console.log('AdSense script not loaded yet, retrying...');
-        setTimeout(initializeAds, 1000);
-        return;
-      }
+  // Removed AdSense initialization - using new ad format
 
-      try {
-        // Find all ad elements that haven't been initialized
-        const adElements = document.querySelectorAll('.adsbygoogle');
-        console.log('Found', adElements.length, 'ad elements');
-        
-        adElements.forEach((element, index) => {
-          // Check if this element already has an ad
-          if (element.innerHTML.trim() === '' && !element.hasAttribute('data-adsbygoogle-status')) {
-            console.log('Initializing ad element', index + 1);
-            try {
-              (window.adsbygoogle = window.adsbygoogle || []).push({});
-            } catch (error) {
-              console.log('Error initializing individual ad:', error.message);
-            }
-          }
-        });
-      } catch (error) {
-        console.log('AdSense initialization error:', error.message);
-      }
-    };
-
-    // Wait for AdSense to load
-    const timer = setTimeout(initializeAds, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [currentScreen]); // Re-run when screen changes
-
-  // Additional ad initialization for specific screens
-  useEffect(() => {
-    if (currentScreen === 'main' || gameState === 'ended') {
-      const timer = setTimeout(() => {
-        if (window.adsbygoogle) {
-          try {
-            const uninitializedAds = document.querySelectorAll('.adsbygoogle:empty:not([data-adsbygoogle-status])');
-            if (uninitializedAds.length > 0) {
-              console.log('Reinitializing ads for screen:', currentScreen, 'gameState:', gameState);
-              uninitializedAds.forEach(() => {
-                (window.adsbygoogle = window.adsbygoogle || []).push({});
-              });
-            }
-          } catch (error) {
-            console.log('Screen-specific ad initialization error:', error.message);
-          }
-        }
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [currentScreen, gameState]);
+  // Removed additional AdSense initialization - using new ad format
 
   const playLoadingSound = () => {
     try {
@@ -1088,12 +1029,7 @@ const App = () => {
           {/* Left Side Ad */}
           <div className="hidden lg:block w-64 mx-4">
             <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <ins className="adsbygoogle"
-                   style={{display: 'block'}}
-                   data-ad-client="ca-pub-1805547376392100"
-                   data-ad-slot="6563354949"
-                   data-ad-format="auto"
-                   data-full-width-responsive="true"></ins>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1111,15 +1047,10 @@ const App = () => {
             >
               🎮 How to Play Guide 🎮
             </motion.button>
-            {/* Google AdSense Rectangle Ad */}
+            {/* New Ad Format */}
             <div className="w-full mb-6 flex justify-center">
               <div className="bg-white rounded-lg p-2 shadow-md">
-                <ins className="adsbygoogle"
-                     style={{display: 'block'}}
-                     data-ad-client="ca-pub-1805547376392100"
-                     data-ad-slot="4863260469"
-                     data-ad-format="auto"
-                     data-full-width-responsive="true"></ins>
+                <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
                 <div className="text-center text-gray-500 text-xs mt-2">
                   Advertisement
                 </div>
@@ -1187,7 +1118,13 @@ const App = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setCurrentScreen("join-room")}
+                  onClick={() => {
+                    // Trigger popunder ad
+                    if (window.popunder) {
+                      window.popunder();
+                    }
+                    setCurrentScreen("join-room");
+                  }}
                   className={`flex-1 ${orangeButtonOutline}`}
                 >
                   🚪 Join Room
@@ -1198,12 +1135,7 @@ const App = () => {
           {/* Right Side Ad */}
           <div className="hidden lg:block w-64 mx-4">
             <div className="bg-white rounded-lg p-2 shadow-md sticky top-4">
-              <ins className="adsbygoogle"
-                   style={{display: 'block'}}
-                   data-ad-client="ca-pub-1805547376392100"
-                   data-ad-slot="6563354949"
-                   data-ad-format="auto"
-                   data-full-width-responsive="true"></ins>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1343,7 +1275,13 @@ const App = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={joinRoom}
+                onClick={() => {
+                  // Trigger popunder ad
+                  if (window.popunder) {
+                    window.popunder();
+                  }
+                  joinRoom();
+                }}
                 className={`flex-1 ${orangeButton}`}
               >
                 🚪 Join Room
@@ -1375,15 +1313,10 @@ const App = () => {
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
           <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
           
-          {/* Google AdSense Rectangle Ad */}
+          {/* New Ad Format */}
           <div className="w-full mb-4 flex justify-center">
             <div className="bg-white rounded-lg p-2 shadow-md">
-              <ins className="adsbygoogle"
-                   style={{display: 'block'}}
-                   data-ad-client="ca-pub-1805547376392100"
-                   data-ad-slot="4863260469"
-                   data-ad-format="auto"
-                   data-full-width-responsive="true"></ins>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>
@@ -1788,15 +1721,10 @@ const App = () => {
       >
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
           
-          {/* Google AdSense Rectangle Ad */}
+          {/* New Ad Format */}
           <div className="w-full mb-6 flex justify-center">
             <div className="bg-white rounded-lg p-2 shadow-md">
-              <ins className="adsbygoogle"
-                   style={{display: 'block'}}
-                   data-ad-client="ca-pub-1805547376392100"
-                   data-ad-slot="4863260469"
-                   data-ad-format="auto"
-                   data-full-width-responsive="true"></ins>
+              <div id="container-be0dca7a67d4690a3a9f2f04500b5428"></div>
               <div className="text-center text-gray-500 text-xs mt-2">
                 Advertisement
               </div>

@@ -2,7 +2,7 @@
   "name": "object-hunt-fullstack",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd client && rm -rf dist node_modules package-lock.json && npm install && npm run build",
+    "build": "cd client && npm install && npm run build",
     "start": "cd server && npm install && node index.js",
     "heroku-postbuild": "npm run build"
   },

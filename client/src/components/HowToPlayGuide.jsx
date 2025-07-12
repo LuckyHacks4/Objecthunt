@@ -91,7 +91,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
     }
   };
 
-  // Removed AdSense initialization - using new ad format
+  
 
   return (
     <AnimatePresence>

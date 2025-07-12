@@ -12,6 +12,7 @@ import bg from "./bg.png";
 import MakeInIndiaLogo from "./components/MakeInIndiaLogo";
 import HowToPlayGuide from "./components/HowToPlayGuide";
 import TermsOfService from "./components/TermsOfService";
+import BannerAd from "./components/BannerAd";
 
 const App = () => {
   const [username, setUsername] = useState("");
@@ -111,13 +112,7 @@ const App = () => {
     shutterSound.current.volume = 0.5;
     voteSound.current.volume = 0.5;
     endSound.current.volume = 0.5;
-    
-    // Removed Google AdSense initialization - using new ad format
   }, []);
-
-  // Removed AdSense initialization - using new ad format
-
-  // Removed additional AdSense initialization - using new ad format
 
   const playLoadingSound = () => {
     try {
@@ -1024,6 +1019,12 @@ const App = () => {
         className={`min-h-screen flex flex-col items-center justify-center p-4`}
       >
         {renderHeader()}
+        
+        {/* Top Banner Ad */}
+        <div className="w-full max-w-6xl mx-auto mb-6">
+          <BannerAd position="top" />
+        </div>
+        
         {/* Main Content Container with Side Ads */}
         <div className="flex items-center justify-center w-full max-w-6xl mx-auto">
 
@@ -1102,23 +1103,7 @@ const App = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    // Trigger popunder ad
-                    try {
-                      // Create a new window to trigger popunder
-                      const popunderWindow = window.open('about:blank', '_blank', 'width=1,height=1,left=-1000,top=-1000');
-                      if (popunderWindow) {
-                        popunderWindow.close();
-                      }
-                      // Also try to trigger any popunder script
-                      if (window.popunder) {
-                        window.popunder();
-                      }
-                    } catch (error) {
-                      console.log('Popunder trigger error:', error);
-                    }
-                    setCurrentScreen("join-room");
-                  }}
+                  onClick={() => setCurrentScreen("join-room")}
                   className={`flex-1 ${orangeButtonOutline}`}
                 >
                   🚪 Join Room
@@ -1127,6 +1112,11 @@ const App = () => {
             </div>
           </div>
 
+        </div>
+        
+        {/* Bottom Banner Ad */}
+        <div className="w-full max-w-6xl mx-auto mt-6">
+          <BannerAd position="bottom" />
         </div>
       </motion.div>
     );
@@ -1261,23 +1251,7 @@ const App = () => {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  // Trigger popunder ad
-                  try {
-                    // Create a new window to trigger popunder
-                    const popunderWindow = window.open('about:blank', '_blank', 'width=1,height=1,left=-1000,top=-1000');
-                    if (popunderWindow) {
-                      popunderWindow.close();
-                    }
-                    // Also try to trigger any popunder script
-                    if (window.popunder) {
-                      window.popunder();
-                    }
-                  } catch (error) {
-                    console.log('Popunder trigger error:', error);
-                  }
-                  joinRoom();
-                }}
+                onClick={joinRoom}
                 className={`flex-1 ${orangeButton}`}
               >
                 🚪 Join Room
@@ -1306,6 +1280,12 @@ const App = () => {
         className={`min-h-screen flex flex-col items-center justify-center p-4`}
       >
         {renderHeader()}
+        
+        {/* Top Banner Ad */}
+        <div className="w-full max-w-6xl mx-auto mb-6">
+          <BannerAd position="top" />
+        </div>
+        
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
           <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
           
@@ -1480,6 +1460,11 @@ const App = () => {
           <div className="mt-2 text-xs text-primary-dark text-center">
             Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b> | Rounds: <b>{numberOfRounds}</b>
           </div>
+        </div>
+        
+        {/* Bottom Banner Ad */}
+        <div className="w-full max-w-6xl mx-auto mt-6">
+          <BannerAd position="bottom" />
         </div>
       </motion.div>
     );
@@ -1707,9 +1692,12 @@ const App = () => {
         className={`fixed inset-0 flex items-center justify-center p-4 overflow-y-auto`}
         style={{ zIndex: 10 }}
       >
+        {/* Top Banner Ad */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-full max-w-6xl">
+          <BannerAd position="top" />
+        </div>
+        
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
-          
-
           
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
           <div className="space-y-4">
@@ -1755,6 +1743,11 @@ const App = () => {
               </div>
             )}
           </div>
+        </div>
+        
+        {/* Bottom Banner Ad */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-6xl">
+          <BannerAd position="bottom" />
         </div>
       </motion.div>
     );

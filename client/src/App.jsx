@@ -2113,8 +2113,8 @@ const App = () => {
                   onClose={() => setShowTermsOfService(false)} 
                 />
                 
-                {/* Make in India Logo */}
-                <MakeInIndiaLogo />
+                {/* Make in India Logo - Temporarily Hidden */}
+                {/* <MakeInIndiaLogo /> */}
                 
                 {/* Footer with License Information */}
                 <footer className="fixed bottom-0 left-0 right-0 bg-black/80 text-white text-xs p-2 z-40">

@@ -12,7 +12,6 @@ import bg from "./bg.png";
 import MakeInIndiaLogo from "./components/MakeInIndiaLogo";
 import HowToPlayGuide from "./components/HowToPlayGuide";
 import TermsOfService from "./components/TermsOfService";
-import BannerAd from "./components/BannerAd";
 
 const App = () => {
   const [username, setUsername] = useState("");
@@ -1020,12 +1019,7 @@ const App = () => {
       >
         {renderHeader()}
         
-        {/* Top Banner Ad */}
-        <div className="w-full max-w-6xl mx-auto mb-6">
-          <BannerAd position="top" />
-        </div>
-        
-        {/* Main Content Container with Side Ads */}
+        {/* Main Content Container */}
         <div className="flex items-center justify-center w-full max-w-6xl mx-auto">
 
           {/* Main Content */}
@@ -2023,6 +2017,17 @@ const App = () => {
       </div>
     </div>
   );
+
+  // Force-close avatar camera if game starts while avatar camera is open
+  useEffect(() => {
+    if (showAvatarCamera && gameState === "playing") {
+      setShowAvatarCamera(false);
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
+    }
+  }, [gameState, showAvatarCamera, cameraStream]);
 
   // --- MAIN RENDER ---
   return (

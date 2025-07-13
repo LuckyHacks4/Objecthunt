@@ -699,7 +699,15 @@ const App = () => {
   };
 
   const createRoom = () => {
-    if (!username.trim()) return;
+    console.log("createRoom function called");
+    console.log("Username:", username);
+    console.log("Socket connected:", socket.connected);
+    console.log("Socket ID:", mySocketId);
+    
+    if (!username.trim()) {
+      console.log("Username is empty, returning");
+      return;
+    }
     
     // Auto-generate room code if not provided
     const finalRoomId = roomId.trim() || generateRoomCode();
@@ -720,9 +728,17 @@ const App = () => {
     localStorage.setItem('objectHuntUsername', username);
     
     console.log("Creating room:", { roomId: finalRoomId, username, socketId: mySocketId, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
+    
+    if (!socket.connected) {
+      console.log("Socket not connected, attempting to connect...");
+      socket.connect();
+    }
+    
     socket.emit("create-room", { roomId: finalRoomId, username, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
     setJoinedRoom(true);
     setCurrentScreen("lobby");
+    
+    console.log("Room creation request sent");
   };
 
   const joinRoom = () => {
@@ -1107,11 +1123,6 @@ const App = () => {
           </div>
 
         </div>
-        
-        {/* Bottom Banner Ad */}
-        <div className="w-full max-w-6xl mx-auto mt-6">
-          <BannerAd position="bottom" />
-        </div>
       </motion.div>
     );
   };
@@ -1274,11 +1285,6 @@ const App = () => {
         className={`min-h-screen flex flex-col items-center justify-center p-4`}
       >
         {renderHeader()}
-        
-        {/* Top Banner Ad */}
-        <div className="w-full max-w-6xl mx-auto mb-6">
-          <BannerAd position="top" />
-        </div>
         
         <div className={`${orangeOverlay} rounded-3xl p-10 max-w-md w-full`}>
           <h1 className="text-2xl font-bold text-center mb-6 text-primary-dark drop-shadow">Room Lobby</h1>
@@ -1454,11 +1460,6 @@ const App = () => {
           <div className="mt-2 text-xs text-primary-dark text-center">
             Per-round time: <b>{roundTime}s</b> | Max players: <b>{maxPlayers}</b> | Rounds: <b>{numberOfRounds}</b>
           </div>
-        </div>
-        
-        {/* Bottom Banner Ad */}
-        <div className="w-full max-w-6xl mx-auto mt-6">
-          <BannerAd position="bottom" />
         </div>
       </motion.div>
     );
@@ -1686,11 +1687,6 @@ const App = () => {
         className={`fixed inset-0 flex items-center justify-center p-4 overflow-y-auto`}
         style={{ zIndex: 10 }}
       >
-        {/* Top Banner Ad */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-full max-w-6xl">
-          <BannerAd position="top" />
-        </div>
-        
         <div className={`${orangeOverlay} rounded-lg p-8 max-w-2xl w-full`}>
           
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
@@ -1737,11 +1733,6 @@ const App = () => {
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Bottom Banner Ad */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-full max-w-6xl">
-          <BannerAd position="bottom" />
         </div>
       </motion.div>
     );

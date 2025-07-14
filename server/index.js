@@ -271,155 +271,6 @@ io.on("connection", (socket) => {
     }
   });
 
-  function processVotingResults(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
-    
-    console.log(`Processing voting results for room ${roomId}`);
-
-    // Process each submission
-    room.submissions.forEach(submission => {
-      const yesVotes = submission.votes.filter(v => v.vote === "yes").length;
-      const totalVotes = submission.votes.length;
-      
-      if (totalVotes > 0) {
-        const ratio = yesVotes / totalVotes;
-        if (ratio >= 0.5) {
-          const rank = room.submissions
-            .sort((a, b) => a.time - b.time)
-            .findIndex(s => s.playerId === submission.playerId);
-          const speedBonus = 1 - rank * 0.1;
-          const points = Math.round(100 * speedBonus * ratio);
-          room.scores[submission.playerId] += points;
-        }
-      }
-    });
-
-    // Update scores and move to next round
-    io.to(roomId).emit("score-update", room.scores);
-    
-    // Wait 3 seconds before next round (to allow clients to show round results modal)
-    setTimeout(() => {
-      nextRound(roomId);
-    }, 3000);
-  }
-
-  function nextRound(roomId) {
-    const room = rooms[roomId];
-    if (!room) return;
-
-    room.round += 1;
-    console.log(`Starting round ${room.round} for room ${roomId}`);
-    
-    if (room.round > room.numberOfRounds) {
-      console.log(`Game ended for room ${roomId}`);
-      room.gameEnded = true;
-      io.to(roomId).emit("game-ended", room.scores);
-      return;
-    }
-    
-    room.submissions = [];
-    
-    // Start photo submission timer for this round
-    startPhotoSubmissionTimer(roomId);
-    
-    // Initialize used words if not exists
-    if (!room.usedWords) room.usedWords = [];
-    
-    const wordList = [
-      // Simple household items that can be picked up
-      "pen", "pencil", "book", "paper", "notebook", "ruler", "eraser", "marker", "crayon", "scissors",
-      "tape", "glue", "stapler", "paperclip", "rubber band", "sticker", "envelope", "stamp", "card", "photo",
-      
-      // Kitchen items (portable)
-      "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "glass", "bottle", "can",
-      "apple", "banana", "orange", "cookie", "bread", "egg", "salt", "pepper", "napkin", "tissue",
-      
-      // Clothing & accessories
-      "shoe", "sock", "shirt", "hat", "cap", "glove", "scarf", "belt", "tie", "watch",
-      "glasses", "sunglasses", "ring", "necklace", "bracelet", "earring", "wallet", "purse", "bag", "backpack",
-      
-      // Personal care items
-      "toothbrush", "toothpaste", "soap", "shampoo", "brush", "comb", "mirror", "towel", "tissue", "lotion",
-      "perfume", "deodorant", "razor", "nail clipper", "makeup", "lipstick", "powder", "cream", "bandaid", "medicine",
-      
-      // Electronics (small/portable)
-      "phone", "remote", "headphones", "charger", "mouse", "keyboard", "cable", "battery", "flashlight", "calculator",
-      "camera", "game", "cd", "dvd", "usb", "speaker", "microphone", "earbuds", "tablet", "laptop",
-      
-      // Toys & games
-      "ball", "toy", "doll", "car", "truck", "puzzle", "card", "dice", "coin", "marble",
-      "yo-yo", "slinky", "blocks", "lego", "action figure", "stuffed animal", "balloon", "kite", "frisbee", "jump rope",
-      
-      // Office/school supplies
-      "folder", "binder", "clipboard", "calendar", "planner", "highlighter", "whiteboard marker", "chalk", "pushpin", "thumbtack",
-      
-      // Tools (simple/small)
-      "hammer", "screwdriver", "wrench", "nail", "screw", "key", "lock", "flashlight", "tape measure", "level",
-      
-      // Bathroom items
-      "cup", "bottle", "container", "jar", "tube", "spray bottle", "cotton ball", "q-tip", "tweezers", "nail file",
-      
-      // Bedroom items
-      "pillow", "blanket", "sheet", "pillowcase", "alarm clock", "lamp", "candle", "picture frame", "book", "magazine",
-      
-      // Kitchen utensils
-      "spatula", "whisk", "ladle", "tongs", "can opener", "bottle opener", "measuring cup", "timer", "oven mitt", "pot holder",
-      
-      // Cleaning supplies
-      "sponge", "cloth", "paper towel", "spray bottle", "brush", "dustpan", "gloves", "bucket", "mop", "broom",
-      
-      // Art supplies
-      "paint", "paintbrush", "colored pencil", "chalk", "charcoal", "canvas", "sketchbook", "palette", "easel", "frame",
-      
-      // Garden items (small)
-      "flower", "plant", "seed", "watering can", "gloves", "small shovel", "pruners", "pot", "fertilizer", "soil",
-      
-      // Sports items (portable)
-      " ball", "racket", "bat", "glove", "helmet",, "water bottle", "towel", "whistle", "stopwatch", "medal",
-      
-      // Food items
-      "cereal", "milk", "juice", "water", "soda", "coffee", "tea", "sugar", "honey", "jam",
-      "peanut butter", "crackers", "chips", "candy", "chocolate", "gum", "mint", "lemon", "lime", "grape",
-      
-      // Miscellaneous portable items
-      "box", "bag", "container", "basket", "jar", "bottle", "tube", "stick", "string", "rope",
-      "wire", "chain", "hook", "clip", "pin", "button", "zipper", "velcro", "magnet", "sticker"
-    ];
-    
-    // Combine regular words with custom words
-    let allWords = [...wordList];
-    if (room.customWords && room.customWords.length > 0) {
-      allWords = [...allWords, ...room.customWords];
-    }
-    
-    // Filter out used words
-    const availableWords = allWords.filter(word => !room.usedWords.includes(word));
-    
-    // If all words used, reset the used words list
-    if (availableWords.length === 0) {
-      room.usedWords = [];
-    }
-    
-    // Ensure at least 2 custom words are used in a 5-round game
-    let newWord;
-    if (room.round <= 2 && room.customWords && room.customWords.length > 0) {
-      // For first 2 rounds, prioritize custom words
-      const availableCustomWords = room.customWords.filter(word => !room.usedWords.includes(word));
-      if (availableCustomWords.length > 0) {
-        newWord = availableCustomWords[Math.floor(Math.random() * availableCustomWords.length)];
-      } else {
-        newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
-      }
-    } else {
-      newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
-    }
-    
-    room.usedWords.push(newWord);
-    
-    io.to(roomId).emit("new-round", { round: room.round, word: newWord });
-  }
-
   socket.on("next-round", (data) => {
     const { roomId, customWords } = data;
     const room = rooms[roomId];
@@ -595,6 +446,156 @@ io.on("connection", (socket) => {
     }
   });
 });
+
+// Game logic functions (moved outside socket handler for scope access)
+function nextRound(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  room.round += 1;
+  console.log(`Starting round ${room.round} for room ${roomId}`);
+  
+  if (room.round > room.numberOfRounds) {
+    console.log(`Game ended for room ${roomId}`);
+    room.gameEnded = true;
+    io.to(roomId).emit("game-ended", room.scores);
+    return;
+  }
+  
+  room.submissions = [];
+  
+  // Start photo submission timer for this round
+  startPhotoSubmissionTimer(roomId);
+  
+  // Initialize used words if not exists
+  if (!room.usedWords) room.usedWords = [];
+  
+  const wordList = [
+    // Simple household items that can be picked up
+    "pen", "pencil", "book", "paper", "notebook", "ruler", "eraser", "marker", "crayon", "scissors",
+    "tape", "glue", "stapler", "paperclip", "rubber band", "sticker", "envelope", "stamp", "card", "photo",
+    
+    // Kitchen items (portable)
+    "spoon", "fork", "knife", "plate", "bowl", "cup", "mug", "glass", "bottle", "can",
+    "apple", "banana", "orange", "cookie", "bread", "egg", "salt", "pepper", "napkin", "tissue",
+    
+    // Clothing & accessories
+    "shoe", "sock", "shirt", "hat", "cap", "glove", "scarf", "belt", "tie", "watch",
+    "glasses", "sunglasses", "ring", "necklace", "bracelet", "earring", "wallet", "purse", "bag", "backpack",
+    
+    // Personal care items
+    "toothbrush", "toothpaste", "soap", "shampoo", "brush", "comb", "mirror", "towel", "tissue", "lotion",
+    "perfume", "deodorant", "razor", "nail clipper", "makeup", "lipstick", "powder", "cream", "bandaid", "medicine",
+    
+    // Electronics (small/portable)
+    "phone", "remote", "headphones", "charger", "mouse", "keyboard", "cable", "battery", "flashlight", "calculator",
+    "camera", "game", "cd", "dvd", "usb", "speaker", "microphone", "earbuds", "tablet", "laptop",
+    
+    // Toys & games
+    "ball", "toy", "doll", "car", "truck", "puzzle", "card", "dice", "coin", "marble",
+    "yo-yo", "slinky", "blocks", "lego", "action figure", "stuffed animal", "balloon", "kite", "frisbee", "jump rope",
+    
+    // Office/school supplies
+    "folder", "binder", "clipboard", "calendar", "planner", "highlighter", "whiteboard marker", "chalk", "pushpin", "thumbtack",
+    
+    // Tools (simple/small)
+    "hammer", "screwdriver", "wrench", "nail", "screw", "key", "lock", "flashlight", "tape measure", "level",
+    
+    // Bathroom items
+    "cup", "bottle", "container", "jar", "tube", "spray bottle", "cotton ball", "q-tip", "tweezers", "nail file",
+    
+    // Bedroom items
+    "pillow", "blanket", "sheet", "pillowcase", "alarm clock", "lamp", "candle", "picture frame", "book", "magazine",
+    
+    // Kitchen utensils
+    "spatula", "whisk", "ladle", "tongs", "can opener", "bottle opener", "measuring cup", "timer", "oven mitt", "pot holder",
+    
+    // Cleaning supplies
+    "sponge", "cloth", "paper towel", "spray bottle", "brush", "dustpan", "gloves", "bucket", "mop", "broom",
+    
+    // Art supplies
+    "paint", "paintbrush", "colored pencil", "chalk", "charcoal", "canvas", "sketchbook", "palette", "easel", "frame",
+    
+    // Garden items (small)
+    "flower", "plant", "seed", "watering can", "gloves", "small shovel", "pruners", "pot", "fertilizer", "soil",
+    
+    // Sports items (portable)
+    " ball", "racket", "bat", "glove", "helmet",, "water bottle", "towel", "whistle", "stopwatch", "medal",
+    
+    // Food items
+    "cereal", "milk", "juice", "water", "soda", "coffee", "tea", "sugar", "honey", "jam",
+    "peanut butter", "crackers", "chips", "candy", "chocolate", "gum", "mint", "lemon", "lime", "grape",
+    
+    // Miscellaneous portable items
+    "box", "bag", "container", "basket", "jar", "bottle", "tube", "stick", "string", "rope",
+    "wire", "chain", "hook", "clip", "pin", "button", "zipper", "velcro", "magnet", "sticker"
+  ];
+  
+  // Combine regular words with custom words
+  let allWords = [...wordList];
+  if (room.customWords && room.customWords.length > 0) {
+    allWords = [...allWords, ...room.customWords];
+  }
+  
+  // Filter out used words
+  const availableWords = allWords.filter(word => !room.usedWords.includes(word));
+  
+  // If all words used, reset the used words list
+  if (availableWords.length === 0) {
+    room.usedWords = [];
+  }
+  
+  // Ensure at least 2 custom words are used in a 5-round game
+  let newWord;
+  if (room.round <= 2 && room.customWords && room.customWords.length > 0) {
+    // For first 2 rounds, prioritize custom words
+    const availableCustomWords = room.customWords.filter(word => !room.usedWords.includes(word));
+    if (availableCustomWords.length > 0) {
+      newWord = availableCustomWords[Math.floor(Math.random() * availableCustomWords.length)];
+    } else {
+      newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+    }
+  } else {
+    newWord = availableWords[Math.floor(Math.random() * availableWords.length)];
+  }
+  
+  room.usedWords.push(newWord);
+  
+  io.to(roomId).emit("new-round", { round: room.round, word: newWord });
+}
+
+function processVotingResults(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  
+  console.log(`Processing voting results for room ${roomId}`);
+
+  // Process each submission
+  room.submissions.forEach(submission => {
+    const yesVotes = submission.votes.filter(v => v.vote === "yes").length;
+    const totalVotes = submission.votes.length;
+    
+    if (totalVotes > 0) {
+      const ratio = yesVotes / totalVotes;
+      if (ratio >= 0.5) {
+        const rank = room.submissions
+          .sort((a, b) => a.time - b.time)
+          .findIndex(s => s.playerId === submission.playerId);
+        const speedBonus = 1 - rank * 0.1;
+        const points = Math.round(100 * speedBonus * ratio);
+        room.scores[submission.playerId] += points;
+      }
+    }
+  });
+
+  // Update scores and move to next round
+  io.to(roomId).emit("score-update", room.scores);
+  
+  // Wait 3 seconds before next round (to allow clients to show round results modal)
+  setTimeout(() => {
+    nextRound(roomId);
+  }, 3000);
+}
 
 // Serve static files from the React app
 const staticPath = path.join(__dirname, "../client/dist");

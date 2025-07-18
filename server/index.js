@@ -57,6 +57,12 @@ io.on("connection", (socket) => {
             delete room.scores[oldSocketId];
           }
           
+          // Update avatar mapping
+          if (room.avatars && room.avatars[oldSocketId]) {
+            room.avatars[socket.id] = room.avatars[oldSocketId];
+            delete room.avatars[oldSocketId];
+          }
+          
           socket.join(existingRoomId);
           io.to(existingRoomId).emit("session-restored", {
             gameState: room.gameEnded ? "ended" : room.round > 0 ? "playing" : "lobby",
@@ -67,7 +73,10 @@ io.on("connection", (socket) => {
             customWords: room.customWords || [],
             roomId: existingRoomId
           });
-          io.to(existingRoomId).emit("room-update", room.players);
+          io.to(existingRoomId).emit("room-update", {
+            players: room.players,
+            settings: getRoomSettings(existingRoomId)
+          });
           return;
         }
       }
@@ -125,7 +134,10 @@ io.on("connection", (socket) => {
     
     socket.join(finalRoomId);
     console.log("Room players after join:", rooms[finalRoomId].players);
-    io.to(finalRoomId).emit("room-update", rooms[finalRoomId].players);
+    io.to(finalRoomId).emit("room-update", {
+      players: rooms[finalRoomId].players,
+      settings: getRoomSettings(finalRoomId)
+    });
     
     // Start AFK monitoring for this room
     startAFKMonitoring(finalRoomId);
@@ -140,10 +152,23 @@ io.on("connection", (socket) => {
     return result;
   }
 
+  function getRoomSettings(roomId) {
+    const room = rooms[roomId];
+    if (!room) return null;
+    return {
+      roundTime: room.roundTime,
+      maxPlayers: room.maxPlayers,
+      numberOfRounds: room.numberOfRounds
+    };
+  }
+
   socket.on("player-ready", ({ roomId }) => {
     const player = rooms[roomId]?.players.find(p => p.id === socket.id);
     if (player) player.ready = true;
-    io.to(roomId).emit("room-update", rooms[roomId].players);
+    io.to(roomId).emit("room-update", {
+      players: rooms[roomId].players,
+      settings: getRoomSettings(roomId)
+    });
   });
 
   socket.on("leave-room", ({ roomId }) => {
@@ -168,7 +193,10 @@ io.on("connection", (socket) => {
         console.log("Room deleted:", roomId);
       } else {
         // Update remaining players
-        io.to(roomId).emit("room-update", room.players);
+        io.to(roomId).emit("room-update", {
+          players: room.players,
+          settings: getRoomSettings(roomId)
+        });
       }
     }
     
@@ -285,7 +313,10 @@ io.on("connection", (socket) => {
     
     nextRound(roomId);
     room.players.forEach(p => p.ready = false);
-    io.to(roomId).emit("room-update", room.players);
+    io.to(roomId).emit("room-update", {
+      players: room.players,
+      settings: getRoomSettings(roomId)
+    });
   });
 
   socket.on("send-message", ({ roomId, user, message }) => {
@@ -322,7 +353,10 @@ io.on("connection", (socket) => {
     });
     
     // Broadcast reset to all players
-    io.to(roomId).emit("game-reset", room.players);
+    io.to(roomId).emit("game-reset", {
+      players: room.players,
+      settings: getRoomSettings(roomId)
+    });
   });
 
   socket.on("disconnecting", () => {
@@ -342,7 +376,10 @@ io.on("connection", (socket) => {
           if (currentPlayer && currentPlayer.afk && (Date.now() - currentPlayer.lastActivity) > 10 * 60 * 1000) {
             room.players = room.players.filter(p => p.sessionId !== disconnectedPlayer.sessionId);
             delete room.scores[currentPlayer.id];
-            io.to(roomId).emit("room-update", room.players);
+            io.to(roomId).emit("room-update", {
+              players: room.players,
+              settings: getRoomSettings(roomId)
+            });
             console.log(`Player ${disconnectedPlayer.name} removed after 10 minutes of inactivity`);
           }
         }, 10 * 60 * 1000);
@@ -377,7 +414,10 @@ io.on("connection", (socket) => {
     // Remove player
     room.players = room.players.filter(p => p.id !== playerId);
     delete room.scores[playerId];
-    io.to(roomId).emit("room-update", room.players);
+    io.to(roomId).emit("room-update", {
+      players: room.players,
+      settings: getRoomSettings(roomId)
+    });
     // Also forcibly disconnect the kicked player from the room
     io.to(playerId).emit("kicked");
     io.to(playerId).socketsLeave(roomId);
@@ -396,7 +436,10 @@ io.on("connection", (socket) => {
     if (player) {
       player.afk = true;
       player.lastActivity = Date.now() - (6 * 60 * 1000); // Mark as 6 minutes ago
-      io.to(roomId).emit("room-update", room.players);
+      io.to(roomId).emit("room-update", {
+        players: room.players,
+        settings: getRoomSettings(roomId)
+      });
       console.log(`Player ${player.name} is now AFK`);
       
       // Check if we need to advance the game
@@ -411,7 +454,10 @@ io.on("connection", (socket) => {
     if (player) {
       player.afk = false;
       player.lastActivity = Date.now();
-      io.to(roomId).emit("room-update", room.players);
+      io.to(roomId).emit("room-update", {
+        players: room.players,
+        settings: getRoomSettings(roomId)
+      });
       console.log(`Player ${player.name} is back from AFK`);
     }
   });
@@ -438,7 +484,10 @@ io.on("connection", (socket) => {
         disconnectedPlayer.afk = true;
         disconnectedPlayer.lastActivity = Date.now() - (6 * 60 * 1000);
         console.log(`Player ${disconnectedPlayer.name} disconnected, marked as AFK`);
-        io.to(roomId).emit("room-update", room.players);
+        io.to(roomId).emit("room-update", {
+          players: room.players,
+          settings: getRoomSettings(roomId)
+        });
         
         // Check if we need to advance the game due to AFK players
         checkGameProgression(roomId);
@@ -660,7 +709,10 @@ function startAFKMonitoring(roomId) {
     });
     
     if (playersUpdated) {
-      io.to(roomId).emit("room-update", room.players);
+      io.to(roomId).emit("room-update", {
+        players: room.players,
+        settings: getRoomSettings(roomId)
+      });
       checkGameProgression(roomId);
     }
     

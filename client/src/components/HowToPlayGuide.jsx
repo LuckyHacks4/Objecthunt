@@ -31,7 +31,7 @@ const HowToPlayGuide = ({ isOpen, onClose }) => {
     },
     {
       title: "🏆 Step 5: Win the Game",
-      content: "Play 5 rounds and the player with the most points wins! Remember: speed + accuracy = victory!",
+      content: "Play multiple rounds and the player with the most points wins! Remember: speed + accuracy = victory!",
       emoji: "🎉",
       animation: "wobble"
     }

@@ -326,17 +326,35 @@ const App = () => {
   }, [lastActivity, isAFK, roomId, mySocketId]);
 
   useEffect(() => {
-    socket.on("room-update", (updatedPlayers) => {
-      console.log("Room update received:", updatedPlayers);
+    socket.on("room-update", (data) => {
+      console.log("Room update received:", data);
       console.log("My socket ID:", mySocketId);
-      setPlayers(updatedPlayers);
+      
+      // Handle both old format (just players array) and new format (object with players and settings)
+      const players = Array.isArray(data) ? data : data.players;
+      const settings = data.settings;
+      
+      setPlayers(players);
       if (!joinedRoom) {
         console.log("Setting joinedRoom to true");
         setJoinedRoom(true);
       }
-      const me = updatedPlayers.find(p => p.id === mySocketId);
+      const me = players.find(p => p.id === mySocketId);
       console.log("Found me in players:", me);
       setIsReady(!!me?.ready);
+      
+      // Update room settings if provided
+      if (settings) {
+        if (settings.numberOfRounds !== undefined) {
+          setNumberOfRounds(settings.numberOfRounds);
+        }
+        if (settings.roundTime !== undefined) {
+          setRoundTime(settings.roundTime);
+        }
+        if (settings.maxPlayers !== undefined) {
+          setMaxPlayers(settings.maxPlayers);
+        }
+      }
     });
 
     socket.on("session-restored", (data) => {
@@ -526,8 +544,12 @@ const App = () => {
       setPlayerAvatars(prev => ({ ...prev, [playerId]: avatarData }));
     });
 
-    socket.on("game-reset", (updatedPlayers) => {
-      setPlayers(updatedPlayers);
+    socket.on("game-reset", (data) => {
+      // Handle both old format (just players array) and new format (object with players and settings)
+      const players = Array.isArray(data) ? data : data.players;
+      const settings = data.settings;
+      
+      setPlayers(players);
       setGameState("lobby");
       setCurrentScreen("lobby"); // Reset to lobby screen
       setGameJustEnded(false); // Clear the game just ended flag
@@ -539,10 +561,24 @@ const App = () => {
       setShowRoundResults(false);
       setHasSubmittedPhoto(false);
       setPhotoSubmitted(false);
-      setPlayerAvatars({});
+      // Preserve player avatars instead of clearing them
+      // setPlayerAvatars({});
       setCustomWords([]);
       setNewCustomWord("");
       setLoadingFact("");
+      
+      // Update room settings if provided
+      if (settings) {
+        if (settings.numberOfRounds !== undefined) {
+          setNumberOfRounds(settings.numberOfRounds);
+        }
+        if (settings.roundTime !== undefined) {
+          setRoundTime(settings.roundTime);
+        }
+        if (settings.maxPlayers !== undefined) {
+          setMaxPlayers(settings.maxPlayers);
+        }
+      }
     });
 
     return () => {
@@ -704,9 +740,17 @@ const App = () => {
     console.log("Socket connected:", socket.connected);
     console.log("Socket ID:", mySocketId);
     
-    if (!username.trim()) {
-      console.log("Username is empty, returning");
-      return;
+    // Generate random username if not provided
+    let finalUsername = username.trim();
+    if (!finalUsername) {
+      const randomNames = [
+        "Player", "Gamer", "Hunter", "Seeker", "Finder", "Explorer", "Adventurer", "Champion", "Winner", "Hero",
+        "Star", "Legend", "Master", "Pro", "Elite", "Ninja", "Warrior", "Knight", "Wizard", "Mage"
+      ];
+      const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+      const randomNumber = Math.floor(Math.random() * 1000);
+      finalUsername = `${randomName}${randomNumber}`;
+      setUsername(finalUsername);
     }
     
     // Auto-generate room code if not provided
@@ -725,16 +769,16 @@ const App = () => {
     // Save session to localStorage
     localStorage.setItem('objectHuntSession', newSessionId);
     localStorage.setItem('objectHuntRoomId', finalRoomId);
-    localStorage.setItem('objectHuntUsername', username);
+    localStorage.setItem('objectHuntUsername', finalUsername);
     
-    console.log("Creating room:", { roomId: finalRoomId, username, socketId: mySocketId, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
+    console.log("Creating room:", { roomId: finalRoomId, username: finalUsername, socketId: mySocketId, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
     
     if (!socket.connected) {
       console.log("Socket not connected, attempting to connect...");
       socket.connect();
     }
     
-    socket.emit("create-room", { roomId: finalRoomId, username, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
+    socket.emit("create-room", { roomId: finalRoomId, username: finalUsername, roundTime, maxPlayers, numberOfRounds, sessionId: newSessionId });
     setJoinedRoom(true);
     setCurrentScreen("lobby");
     
@@ -811,7 +855,8 @@ const App = () => {
     setShowRoundResults(false);
     setHasSubmittedPhoto(false);
     setPhotoSubmitted(false);
-    setPlayerAvatars({});
+    // Preserve player avatars instead of clearing them
+    // setPlayerAvatars({});
     setShowCelebration(false);
     setWinnerName("");
     setCustomWords([]);
@@ -1721,9 +1766,22 @@ const App = () => {
                     transition={{ delay: index * 0.1 }}
                     className={`flex justify-between items-center p-4 rounded-lg ${index === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}
                   >
-                    <span className="text-lg font-semibold text-primary-dark">
-                      {index + 1}. {player?.name || 'Unknown'}
-                    </span>
+                    <div className="flex items-center space-x-3">
+                      {playerAvatars[playerId] ? (
+                        <img 
+                          src={playerAvatars[playerId]} 
+                          alt="Avatar" 
+                          className="w-10 h-10 rounded-full object-cover border-2 border-primary"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-sm">
+                          👤
+                        </div>
+                      )}
+                      <span className="text-lg font-semibold text-primary-dark">
+                        {index + 1}. {player?.name || 'Unknown'}
+                      </span>
+                    </div>
                     <span className="text-xl font-bold text-primary-dark">{score} points</span>
                   </motion.div>
                 );

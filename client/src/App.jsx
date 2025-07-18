@@ -326,36 +326,36 @@ const App = () => {
   }, [lastActivity, isAFK, roomId, mySocketId]);
 
   useEffect(() => {
-    socket.on("room-update", (data) => {
-      console.log("Room update received:", data);
-      console.log("My socket ID:", mySocketId);
-      
-      // Handle both old format (just players array) and new format (object with players and settings)
-      const players = Array.isArray(data) ? data : data.players;
-      const settings = data.settings;
-      
-      setPlayers(players);
-      if (!joinedRoom) {
-        console.log("Setting joinedRoom to true");
-        setJoinedRoom(true);
+      socket.on("room-update", (data) => {
+    console.log("Room update received:", data);
+    console.log("My socket ID:", mySocketId);
+    
+    // Handle both old format (just players array) and new format (object with players and settings)
+    const players = Array.isArray(data) ? data : (data.players || []);
+    const settings = data.settings;
+    
+    setPlayers(players);
+    if (!joinedRoom) {
+      console.log("Setting joinedRoom to true");
+      setJoinedRoom(true);
+    }
+    const me = (players || []).find(p => p.id === mySocketId);
+    console.log("Found me in players:", me);
+    setIsReady(!!me?.ready);
+    
+    // Update room settings if provided
+    if (settings) {
+      if (settings.numberOfRounds !== undefined) {
+        setNumberOfRounds(settings.numberOfRounds);
       }
-      const me = players.find(p => p.id === mySocketId);
-      console.log("Found me in players:", me);
-      setIsReady(!!me?.ready);
-      
-      // Update room settings if provided
-      if (settings) {
-        if (settings.numberOfRounds !== undefined) {
-          setNumberOfRounds(settings.numberOfRounds);
-        }
-        if (settings.roundTime !== undefined) {
-          setRoundTime(settings.roundTime);
-        }
-        if (settings.maxPlayers !== undefined) {
-          setMaxPlayers(settings.maxPlayers);
-        }
+      if (settings.roundTime !== undefined) {
+        setRoundTime(settings.roundTime);
       }
-    });
+      if (settings.maxPlayers !== undefined) {
+        setMaxPlayers(settings.maxPlayers);
+      }
+    }
+  });
 
     socket.on("session-restored", (data) => {
       console.log("✅ Session restored successfully:", data);
@@ -455,7 +455,7 @@ const App = () => {
       console.log("🏆 Game winner:", gameWinner);
       
       if (gameWinner) {
-        const winnerPlayer = players.find(p => p.id === gameWinner[0]);
+        const winnerPlayer = (players || []).find(p => p.id === gameWinner[0]);
         console.log("👑 Winner player found:", winnerPlayer);
         if (winnerPlayer) {
           console.log("🎊 Setting celebration for winner:", winnerPlayer.name);
@@ -546,7 +546,7 @@ const App = () => {
 
     socket.on("game-reset", (data) => {
       // Handle both old format (just players array) and new format (object with players and settings)
-      const players = Array.isArray(data) ? data : data.players;
+      const players = Array.isArray(data) ? data : (data.players || []);
       const settings = data.settings;
       
       setPlayers(players);
@@ -1333,7 +1333,7 @@ const App = () => {
 
   const renderLobby = () => {
     // Determine if current user is admin (host)
-    const isAdmin = players.length > 0 && players[0].id === mySocketId;
+    const isAdmin = (players || []).length > 0 && (players || [])[0].id === mySocketId;
     const shareUrl = `${window.location.origin}?room=${roomId}`;
     
     const copyShareLink = () => {
@@ -1375,7 +1375,7 @@ const App = () => {
           <div className="mb-4">
             <h3 className="text-lg font-semibold mb-3 text-primary-dark">Players in Room:</h3>
             <div className="space-y-2 mb-4">
-              {players.map((player, index) => (
+              {(players || []).map((player, index) => (
                 <div key={player.id} className="flex items-center justify-between p-2 bg-accent rounded-xl border border-primary-light">
                   <div className="flex items-center space-x-3">
                     {playerAvatars[player.id] ? (
@@ -1492,9 +1492,9 @@ const App = () => {
                 Add
               </button>
             </div>
-            {customWords.length > 0 && (
+            {(customWords || []).length > 0 && (
               <div className="text-xs text-primary-dark">
-                Custom words: {customWords.join(", ")}
+                Custom words: {(customWords || []).join(", ")}
               </div>
             )}
           </div>
@@ -1508,7 +1508,7 @@ const App = () => {
             >
               🚪 Leave Room
             </motion.button>
-            {players.length >= 2 && players.every(p => p.ready) && isAdmin && (
+            {(players || []).length >= 2 && (players || []).every(p => p.ready) && isAdmin && (
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -1577,7 +1577,7 @@ const App = () => {
           <div className={`${orangeOverlay} rounded-lg p-6`}>
             <h3 className="text-xl font-semibold mb-4 text-primary-dark">Players & Scores</h3>
             <div className="space-y-2">
-              {players
+              {(players || [])
                 .sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
                 .map((player, index) => {
                   const isTopPlayer = index === 0 && (scores[player.id] || 0) > 0;
@@ -1612,7 +1612,7 @@ const App = () => {
           <div className={`${orangeOverlay} rounded-lg p-6`}>
             <h3 className="text-xl font-semibold mb-4 text-primary-dark">Chat</h3>
             <div className="h-48 overflow-y-auto mb-4 space-y-2">
-              {messages.map((msg, index) => (
+              {(messages || []).map((msg, index) => (
                 <div key={index} className="p-2 bg-accent rounded">
                   <span className="font-semibold text-primary-dark">{msg.user}:</span> {msg.message}
                 </div>
@@ -1662,11 +1662,11 @@ const App = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {submissions.map((submission, index) => {
-            const player = players.find(p => p.id === submission.playerId);
+          {(submissions || []).map((submission, index) => {
+            const player = (players || []).find(p => p.id === submission.playerId);
             const hasVoted = myVotes.has(index);
             const voteCount = votingProgress[index] || 0;
-            const totalVoters = players.length - 1;
+            const totalVoters = (players || []).length - 1;
             const isOwnSubmission = submission.playerId === mySocketId;
             return (
               <motion.div
@@ -1741,7 +1741,7 @@ const App = () => {
 
   // --- GAME END ---
   const renderGameEnd = () => {
-    const isHost = players.length > 0 && players[0].id === mySocketId;
+    const isHost = (players || []).length > 0 && (players || [])[0].id === mySocketId;
     
     return (
       <motion.div 
@@ -1754,10 +1754,10 @@ const App = () => {
           
           <h2 className="text-4xl font-bold text-center mb-8 text-primary-dark">Game Over!</h2>
           <div className="space-y-4">
-            {Object.entries(scores)
+            {Object.entries(scores || {})
               .sort(([,a], [,b]) => b - a)
               .map(([playerId, score], index) => {
-                const player = players.find(p => p.id === playerId);
+                const player = (players || []).find(p => p.id === playerId);
                 return (
                   <motion.div
                     key={playerId}
@@ -1820,10 +1820,10 @@ const App = () => {
       <div className={`${orangeOverlay} rounded-2xl p-8 max-w-md w-full text-center`}>
         <h2 className="text-2xl font-bold mb-4 text-primary-dark">Round Results</h2>
         <div className="space-y-2">
-          {Object.entries(lastRoundScores)
+          {Object.entries(lastRoundScores || {})
             .sort(([,a], [,b]) => b - a)
             .map(([playerId, score], idx) => {
-              const player = players.find(p => p.id === playerId);
+              const player = (players || []).find(p => p.id === playerId);
               return (
                 <div key={playerId} className={`flex justify-between items-center p-2 rounded-lg ${idx === 0 ? 'bg-yellow-100 border-2 border-yellow-400' : 'bg-gray-100'}`}>
                   <span className="font-semibold text-primary-dark">{player?.name || 'Unknown'}</span>

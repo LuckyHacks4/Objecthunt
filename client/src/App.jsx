@@ -1078,12 +1078,6 @@ const App = () => {
         className="cursor-pointer relative group"
       >
         <img src={logo} alt="Object Hunt Logo" className="h-20 drop-shadow-xl transition-all duration-300" />
-        {/* Magnifying glass overlay */}
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-          <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center">
-            <span className="text-lg">🔍</span>
-          </div>
-        </div>
       </motion.div>
     </header>
   );
